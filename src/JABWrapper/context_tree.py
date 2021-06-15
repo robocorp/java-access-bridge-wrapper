@@ -3,8 +3,8 @@ import ctypes
 import threading
 from typing import Dict, List
 
-from jab_wrapper import JavaAccessBridgeWrapper
-from jab_types import (
+from JABWrapper.jab_wrapper import JavaAccessBridgeWrapper
+from JABWrapper.jab_types import (
     AccessibleActionsToDo,
     AccessibleKeyBindings,
     AccessibleTextItemsInfo,

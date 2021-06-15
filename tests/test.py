@@ -11,8 +11,9 @@ import subprocess
 import threading
 import queue
 
-from context_tree import ContextNode, ContextTree, SearchElement
-from jab_wrapper import JavaAccessBridgeWrapper
+from JABWrapper.context_tree import ContextNode, ContextTree, SearchElement
+from JABWrapper.jab_wrapper import JavaAccessBridgeWrapper
+
 
 PeekMessage = ctypes.windll.user32.PeekMessageW
 GetMessage = ctypes.windll.user32.GetMessageW
@@ -20,7 +21,7 @@ TranslateMessage = ctypes.windll.user32.TranslateMessage
 DispatchMessage = ctypes.windll.user32.DispatchMessageW
 
 def start_test_application():
-    app_path = os.path.join(os.path.curdir, "test-app")
+    app_path = os.path.join(os.path.abspath(os.path.curdir), "tests", "test-app")
     # Compile the simple java program
     returncode = subprocess.call(["makejar.bat"], shell=True, cwd=app_path, close_fds=True)
     if returncode > 0:
@@ -63,6 +64,7 @@ def wait_until_text_cleared(element: ContextNode, retries = 10):
         raise Exception(f"Text element not cleared={element}")
 
 def main():
+    jab_wrapper: JavaAccessBridgeWrapper = None
     try:
         start_test_application()
 
@@ -141,7 +143,8 @@ def main():
         exit_button.click()
     finally:
         logging.info("Shutting down JAB wrapper")
-        jab_wrapper.shutdown()
+        if jab_wrapper:
+            jab_wrapper.shutdown()
 
 
 if __name__ == "__main__":

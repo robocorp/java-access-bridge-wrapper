@@ -1,0 +1,30 @@
+[tool.poetry]
+name = "java-access-bridge-wrapper"
+version = "0.0.1"
+description = "Python wrapper for the Windows Java Access Bridge"
+license = "Apache-2.0"
+readme = "README.md"
+authors = [
+	"Robocorp <support@robocorp.com>",
+]
+repository = "https://github.com/robocorp/java-access-bridge-wrapper.git"
+
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3.7",
+	"Programming Language :: Python :: 3.8"
+]
+
+packages = [
+    { include = "JABWrapper", from "src" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.7.5"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"

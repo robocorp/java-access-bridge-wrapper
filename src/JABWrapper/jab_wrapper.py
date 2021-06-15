@@ -21,7 +21,7 @@ from ctypes import (
 
 from typing import Callable, List
 
-from jab_types import (
+from JABWrapper.jab_types import (
     AccessBridgeVersionInfo,
     AccessibleActions,
     AccessibleActionsToDo,
