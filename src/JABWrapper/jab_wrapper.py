@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 import logging
 
 from ctypes import (
@@ -96,11 +97,15 @@ class _ReleaseEvent:
         self._name = name
         self._event = event
         self._source = source
+        self._start_exec: float = 0
 
     def __enter__(self):
         logging.debug(f"Received {self._name} event={self._source}")
+        self._start_exec = time.perf_counter()
 
     def __exit__(self, type, value, traceback):
+        stop_exec = time.perf_counter()
+        logging.debug(f"Executed {self._name} in {(stop_exec - self._start_exec):.04f}s")
         self._context._wab.releaseJavaObject(self._vmID, self._event)
 
 
@@ -456,7 +461,6 @@ class JavaAccessBridgeWrapper:
 
     def property_state_change(self, vmID: c_long, event: JavaObject, source: JavaObject, old_value: str, new_value: str):
         with _ReleaseEvent(self, vmID, "property_state_change", event, source):
-            # buf = create_unicode_buffer()
             if 'property_state_change' in self._context_callbacks:
                 self._context_callbacks['property_state_change'](source, old_value, new_value)
 

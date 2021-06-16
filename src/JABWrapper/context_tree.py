@@ -13,6 +13,7 @@ from JABWrapper.jab_types import (
     AccessibleTextInfo,
     AccessibleTextSelectionInfo
 )
+from JABWrapper.utils import log_exec_time
 
 
 class SearchElement:
@@ -268,6 +269,7 @@ class ContextNode:
 
 
 class ContextTree:
+    @log_exec_time("Init context tree")
     def __init__(self, jab_wrapper: JavaAccessBridgeWrapper) -> None:
         self._lock = threading.RLock()
         self._jab_wrapper = jab_wrapper
@@ -323,6 +325,7 @@ class ContextTree:
         self._jab_wrapper.register_callback("popup_menu_will_become_invisible", self._update_node_cp)
         self._jab_wrapper.register_callback("popup_menu_will_become_visible", self._update_node_cp)
 
+    @log_exec_time
     def refresh(self) -> None:
         """
         Refresh the context tree
