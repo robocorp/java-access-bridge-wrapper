@@ -19,7 +19,7 @@ from ctypes import (
     create_unicode_buffer
 )
 
-from typing import Callable, List
+from typing import Callable
 
 from JABWrapper.jab_types import (
     AccessBridgeVersionInfo,
@@ -51,9 +51,7 @@ logging.basicConfig(
 
 
 # https://stackoverflow.com/questions/21175922/enumerating-windows-trough-ctypes-in-python
-WNDENUMPROC = WINFUNCTYPE(wintypes.BOOL,
-                            wintypes.HWND,
-                            wintypes.LPARAM)
+WNDENUMPROC = WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
 user32 = windll.user32
 user32.EnumWindows.argtypes = [
     WNDENUMPROC,
@@ -98,8 +96,10 @@ class _ReleaseEvent:
         self._name = name
         self._event = event
         self._source = source
+
     def __enter__(self):
         logging.debug(f"Received {self._name} event={self._source}")
+
     def __exit__(self, type, value, traceback):
         self._context._wab.releaseJavaObject(self._vmID, self._event)
 
@@ -239,7 +239,8 @@ class JavaAccessBridgeWrapper:
         self._wab.setPropertyChangeFP(self._get_callback_func("setPropertyChangeFP", PropertyChangeFP, self.property_changed))
         self._wab.setPropertyTextChangeFP(self._get_callback_func("setPropertyTextChangeFP", PropertyTextChangedFP, self.property_text_changed))
         self._wab.setPropertyNameChangeFP(self._get_callback_func("setPropertyNameChangeFP", PropertyNameChangeFP, self.property_name_change))
-        self._wab.setPropertyDescriptionChangeFP(self._get_callback_func("setPropertyDescriptionChangeFP", PropertyDescriptionChangeFP, self.property_description_change))
+        self._wab.setPropertyDescriptionChangeFP(self._get_callback_func("setPropertyDescriptionChangeFP", PropertyDescriptionChangeFP,
+                                                                         self.property_description_change))
         self._wab.setPropertyStateChangeFP(self._get_callback_func("setPropertyStateChangeFP", PropertStateChangeFP, self.property_state_change))
         # Menu events
         self._wab.setMenuSelectedFP(self._get_callback_func("setMenuSelectedFP", MenuSelectedFP, self.menu_selected))
@@ -256,10 +257,12 @@ class JavaAccessBridgeWrapper:
         self._wab.setMouseReleasedFP(self._get_callback_func("setMouseReleasedFP", MouseReleasedFP, self.mouse_released))
         # Popup menu events
         self._wab.setPopupMenuCanceledFP(self._get_callback_func("setPopupMenuCanceledFP", PopupMenuCanceledFP, self.popup_menu_canceled))
-        self._wab.setPopupMenuWillBecomeInvisibleFP(self._get_callback_func("setPopupMenuWillBecomeInvisibleFP", PopupMenuWillBecomeInvisibleFP, self.popup_menu_will_become_invisible))
-        self._wab.setPopupMenuWillBecomeVisibleFP(self._get_callback_func("setPopupMenuWillBecomeVisibleFP", PopupMenuWillBecomeVisibleFP, self.popup_menu_will_become_visible))
+        self._wab.setPopupMenuWillBecomeInvisibleFP(self._get_callback_func("setPopupMenuWillBecomeInvisibleFP", PopupMenuWillBecomeInvisibleFP,
+                                                    self.popup_menu_will_become_invisible))
+        self._wab.setPopupMenuWillBecomeVisibleFP(self._get_callback_func("setPopupMenuWillBecomeVisibleFP", PopupMenuWillBecomeVisibleFP,
+                                                  self.popup_menu_will_become_visible))
 
-    def _remove_callbacks(self) ->None:
+    def _remove_callbacks(self) -> None:
         # Property events
         self._wab.setPropertyChangeFP(None)
         self._wab.setPropertyTextChangeFP(None)

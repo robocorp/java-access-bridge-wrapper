@@ -20,6 +20,7 @@ GetMessage = ctypes.windll.user32.GetMessageW
 TranslateMessage = ctypes.windll.user32.TranslateMessage
 DispatchMessage = ctypes.windll.user32.DispatchMessageW
 
+
 def start_test_application():
     app_path = os.path.join(os.path.abspath(os.path.curdir), "tests", "test-app")
     # Compile the simple java program
@@ -31,21 +32,28 @@ def start_test_application():
     logging.info("Opening Java Swing application")
     subprocess.Popen(["java", "-jar", "BasicSwing.jar"], shell=True, cwd=app_path, close_fds=True)
 
-def pump_background(pipe: queue.Queue):
-    jab_wrapper = JavaAccessBridgeWrapper()
-    pipe.put(jab_wrapper)
-    message = byref(wintypes.MSG())
-    while GetMessage(message, 0, 0, 0) > 0:
-        TranslateMessage(message)
-        logging.debug("Dispatching msg={}".format(repr(message)))
-        DispatchMessage(message)
-    logging.info("Stopped processing events", flush=True)
 
-def write_to_file(name: str, data: str, mode = 'w') -> None:
+def pump_background(pipe: queue.Queue):
+    try:
+        jab_wrapper = JavaAccessBridgeWrapper()
+        pipe.put(jab_wrapper)
+        message = byref(wintypes.MSG())
+        while GetMessage(message, 0, 0, 0) > 0:
+            TranslateMessage(message)
+            logging.debug("Dispatching msg={}".format(repr(message)))
+            DispatchMessage(message)
+    except Exception as e:
+        logging.error(e)
+    finally:
+        logging.info("Stopped processing events", flush=True)
+
+
+def write_to_file(name: str, data: str, mode='w') -> None:
     with open(name, mode) as f:
         f.write(data)
 
-def wait_until_text_contains(element: ContextNode, text: str, retries = 10):
+
+def wait_until_text_contains(element: ContextNode, text: str, retries=10):
     for i in range(retries):
         if text in element.atp.items.sentence:
             return
@@ -54,7 +62,8 @@ def wait_until_text_contains(element: ContextNode, text: str, retries = 10):
         write_to_file("context.txt", "\n\n{}".format(str(element)), "a+")
         raise Exception(f"Text={text} not found in element={element}")
 
-def wait_until_text_cleared(element: ContextNode, retries = 10):
+
+def wait_until_text_cleared(element: ContextNode, retries=10):
     for i in range(retries):
         if element.atp.items.sentence == '':
             return
@@ -62,6 +71,7 @@ def wait_until_text_cleared(element: ContextNode, retries = 10):
     else:
         write_to_file("context.txt", "\n\n{}".format(str(element)), "a+")
         raise Exception(f"Text element not cleared={element}")
+
 
 def main():
     jab_wrapper: JavaAccessBridgeWrapper = None
@@ -141,6 +151,8 @@ def main():
         exit_button = context_info_tree_for_exit_frame.get_by_attrs([SearchElement("role", "push button"), SearchElement("name", "Exit ok")])[0]
         logging.debug("Found element by role (push button) and name (Exit ok): {}".format(exit_menu))
         exit_button.click()
+    except Exception as e:
+        logging.error(e)
     finally:
         logging.info("Shutting down JAB wrapper")
         if jab_wrapper:

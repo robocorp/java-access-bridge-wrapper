@@ -129,11 +129,11 @@ class ContextNode:
         self.avp = _AccessibleValueParser(self.aci)
         self._aap = _AccessibleActionsParser(self.aci)
         self.akbs = _AccessibleKeyBindingsParser(self.aci)
-        self._parsers = [self.atp, self.avp, self._aap, self.akbs]
+        self._parsers: List[_Parser] = [self.atp, self.avp, self._aap, self.akbs]
         [parser.parse(self._jab_wrapper, self._context) for parser in self._parsers]
 
     def _parse_children(self) -> None:
-        for i in range (0, self.aci.childrenCount):
+        for i in range(0, self.aci.childrenCount):
             child_context = self._jab_wrapper.get_child_context(self._context, i)
             child_node = ContextNode(self._jab_wrapper, child_context, self._lock, self.ancestry + 1)
             self.children.append(child_node)
@@ -191,7 +191,7 @@ class ContextNode:
         If match is found, update the context of the node.
         """
         with self._lock:
-        # Start from bottom up
+            # Start from bottom up
             for child in self.children:
                 updated = child.update(context)
                 if updated:
