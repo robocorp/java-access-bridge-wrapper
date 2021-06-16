@@ -12,6 +12,7 @@ import threading
 import queue
 
 from JABWrapper.context_tree import ContextNode, ContextTree, SearchElement
+from JABWrapper.jab_types import JavaObject
 from JABWrapper.jab_wrapper import JavaAccessBridgeWrapper
 
 
@@ -44,8 +45,9 @@ def pump_background(pipe: queue.Queue):
             DispatchMessage(message)
     except Exception as e:
         logging.error(e)
+        pipe.put(None)
     finally:
-        logging.info("Stopped processing events", flush=True)
+        logging.info("Stopped processing events")
 
 
 def write_to_file(name: str, data: str, mode='w') -> None:
@@ -71,6 +73,23 @@ def wait_until_text_cleared(element: ContextNode, retries=10):
     else:
         write_to_file("context.txt", "\n\n{}".format(str(element)), "a+")
         raise Exception(f"Text element not cleared={element}")
+
+
+class MenuClicked:
+    def __init__(self) -> None:
+        self._file_menu_clicked = False
+
+    def menu_clicked_callback(self, _: JavaObject):
+        self._file_menu_clicked = True
+
+    def wait_until_menu_clicked(self, retries=10):
+        for i in range(retries):
+            if self._file_menu_clicked:
+                logging.info("File menu clicked")
+                return
+            time.sleep(0.01)
+        else:
+            raise Exception("File menu not clicked within timeout")
 
 
 def main():
@@ -130,18 +149,19 @@ def main():
         wait_until_text_cleared(text_field)
 
         # Open Menu item FILE
+        menu_clicked = MenuClicked()
+        jab_wrapper.register_callback("menu_selected", menu_clicked.menu_clicked_callback)
         logging.info("Opening Menu item FILE")
         file_menu = context_info_tree.get_by_attrs([SearchElement("role", "menu"), SearchElement("name", "FILE")])[0]
         logging.debug("Found element by role (push button) and name (FILE): {}".format(clear_button))
         file_menu.click()
+        menu_clicked.wait_until_menu_clicked()
 
         # Click the exit menu
         logging.info("Clicking the exit menu")
         exit_menu = context_info_tree.get_by_attrs([SearchElement("role", "menu item"), SearchElement("name", "Exit")])[0]
         logging.debug("Found element by role (menu item) and name (Exit): {}".format(exit_menu))
         exit_menu.click()
-
-        write_to_file("context.txt", "\n\n{}".format(repr(context_info_tree)), "a+")
 
         # Switch to new exit window and click the exit button
         logging.info("Switching to exit frame and clicking the exit button")

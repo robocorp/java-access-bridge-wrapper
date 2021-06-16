@@ -1,5 +1,4 @@
 import logging
-import ctypes
 import threading
 from typing import Dict, List
 
@@ -143,12 +142,13 @@ class ContextNode:
         """
         Returns a string that represents the object tree with detailed Node values
         """
-        string = "{}C={}, Role={}, Name={}, Desc={}, at x={}:y={} w={} h={}; cc={};".format(
+        string = "{}C={}, Role={}, Name={}, Desc={}, Sts={}, at x={}:y={} w={} h={}; cc={};".format(
             '  ' * self.ancestry,
             self._context,
             repr(self.aci.role),
             repr(self.aci.name),
             repr(self.aci.description),
+            repr(self.aci.states),
             self.aci.x,
             self.aci.y,
             self.aci.width,
@@ -165,10 +165,11 @@ class ContextNode:
         """
         Returns a string of Node values
         """
-        string = "Role={}, Name={}, Desc={}, at x={}:y={} w={} h={}; cc={};".format(
+        string = "Role={}, Name={}, Desc={}, Sts={}, at x={}:y={} w={} h={}; cc={};".format(
             repr(self.aci.role),
             repr(self.aci.name),
             repr(self.aci.description),
+            repr(self.aci.states),
             self.aci.x,
             self.aci.y,
             self.aci.width,
@@ -179,37 +180,19 @@ class ContextNode:
             string += "{}".format(parser)
         return string
 
-    def refresh(self) -> None:
-        with self._lock:
-            self._parse_context()
+    def _get_node_by_context(self, context: JavaObject):
+        if self._jab_wrapper.is_same_object(self._context, context):
+            return self
+        else:
             for child in self.children:
-                child.refresh()
+                node = child._get_node_by_context(context)
+                if node:
+                    return node
 
-    def update(self, context: JavaObject) -> bool:
-        """
-        Find the matching node with context object from bottom up.
-
-        If match is found, update the context of the node.
-        """
-        with self._lock:
-            # Start from bottom up
-            for child in self.children:
-                updated = child.update(context)
-                if updated:
-                    return True
-
-            # If matching object found, update context
-            try:
-                if self._jab_wrapper.is_same_object(self._context, context):
-                    self._context = context
-                    self._parse_context()
-                    return True
-            except ctypes.ArgumentError as e:
-                # TODO: Should the object be dropped from the tree?
-                # Find out why the object query fails in Java Access Bridge depending on timings
-                logging.error(f"JAB object match error={e}")
-
-            return False
+    def _update_node(self) -> None:
+        self.children = []
+        self._parse_context()
+        self._parse_children()
 
     def get_by_attrs(self, search_elements: List[SearchElement]) -> List:
         """
@@ -282,55 +265,168 @@ class ContextTree:
     def __str__(self):
         return f"{self.root}"
 
-    def _update_node_cp(self, source: JavaObject) -> None:
-        self.root.update(source)
-
-    def _property_changed_cp(self, source: JavaObject, property: str, old_value: str, new_value: str) -> None:
-        logging.debug(f"Property name change={source} p={property} ov={old_value} nv={new_value}")
-        self._update_node_cp(source)
+    def _property_change_cp(self, source: JavaObject, property: str, old_value: str, new_value: str) -> None:
+        with self._lock:
+            node: ContextNode = self.root._get_node_by_context(source)
+            if node:
+                setattr(node.aci, property, new_value)
+                logging.debug(f"Property={property} changed from={old_value} to={new_value} for node={node}")
 
     def _property_name_change_cp(self, source: JavaObject, old_value: str, new_value: str) -> None:
-        logging.debug(f"Property name change={source} ov={old_value} nv={new_value}")
-        self._update_node_cp(source)
+        with self._lock:
+            node: ContextNode = self.root._get_node_by_context(source)
+            if node:
+                setattr(node.aci, "name", new_value)
+                logging.debug(f"Name changed from={old_value} to={new_value} for node={node}")
 
     def _property_description_change_cp(self, source: JavaObject, old_value: str, new_value: str) -> None:
-        logging.debug(f"Property description change={source} ov={old_value} nv={new_value}")
-        self._update_node_cp(source)
+        with self._lock:
+            node: ContextNode = self.root._get_node_by_context(source)
+            if node:
+                setattr(node.aci, "description", new_value)
+                logging.debug(f"Description changed from={old_value} to={new_value} for node={node}")
 
     def _property_state_change_cp(self, source: JavaObject, old_value: str, new_value: str) -> None:
-        logging.debug(f"Property state change={source} ov={old_value} nv={new_value}")
-        self._update_node_cp(source)
+        # The property state is not stored in the node component, only the possible states node can have
+        logging.debug("Property state change event event ignored")
+
+    def _property_value_change_cp(self, source: JavaObject, old_value: str, new_value: str) -> None:
+        with self._lock:
+            node: ContextNode = self.root._get_node_by_context(source)
+            if node:
+                node.avp.value = new_value
+                logging.debug(f"Value changed from={old_value} to={new_value} for node={node}")
+
+    def _property_selection_change_cp(self, source: JavaObject) -> None:
+        with self._lock:
+            node: ContextNode = self.root._get_node_by_context(source)
+            if node:
+                node._parse_context()
+                logging.debug(f"Selected text changed for node={node}")
+
+    def _property_text_change_cp(self, source: JavaObject) -> None:
+        with self._lock:
+            node: ContextNode = self.root._get_node_by_context(source)
+            if node:
+                node._parse_context()
+                logging.debug(f"Text changed for node={node}")
+
+    def _property_caret_change_cp(self, source: JavaObject, old_pos: int, new_pos: int) -> None:
+        # Caret information is not stored in the node component
+        logging.debug("Property caret change event ignored")
+
+    def _visible_data_change_cp(self, source: JavaObject) -> None:
+        with self._lock:
+            node = self.root._get_node_by_context(source)
+            if node:
+                node._update_node()
+                logging.debug(f"Visible data changed for node tree={repr(node)}")
+
+    def _property_child_change_cp(self, source: JavaObject, old_child: JavaObject, new_child: JavaObject) -> None:
+        # Not needed to track as the visibility change event handles the coordinate update
+        logging.debug("Property child change event ignored")
+
+    def _property_active_descendent_change_cp(self, source: JavaObject, old_child: JavaObject, new_child: JavaObject) -> None:
+        # The activity status is not stored inside the tree model
+        logging.debug("Property active descendent change event ignored")
+
+    def _property_table_model_change_cp(self, source: JavaObject, old_value: str, new_value: str) -> None:
+        # TODO: Add table model parsing
+        logging.debug("Property table model change event ignored")
+
+    def _menu_selected_cp(self, source: JavaObject) -> None:
+        # All menu events can be ignored as the visibility change event already gives needed information update to the context tree
+        logging.debug("Menu selected event ignored")
+
+    def _menu_deselected_cp(self, source: JavaObject) -> None:
+        # All menu events can be ignored as the visibility change event already gives needed information update to the context tree
+        logging.debug("Menu deselected event ignored")
+
+    def _menu_canceled_cp(self, source: JavaObject) -> None:
+        # All menu events can be ignored as the visibility change event already gives needed information update to the context tree
+        logging.debug("Menu canceled event ignored")
+
+    def _focus_gained_cp(self, source: JavaObject) -> None:
+        # State information is not stored in the context tree
+        logging.debug("Focus gained event ignored")
+
+    def _focus_lost_cp(self, source: JavaObject) -> None:
+        # State information is not stored in the context tree
+        logging.debug("Focus lost event ignored")
+
+    def _caret_update_cp(self, source: JavaObject) -> None:
+        # Caret information is not stored in the context tree
+        logging.debug("Caret update event ignored")
+
+    def _mouse_clicked_cp(self, source: JavaObject) -> None:
+        # Ignore the mouse events, as the change events will update the context tree
+        logging.debug("mouse clicked event ignored")
+
+    def _mouse_entered_cp(self, source: JavaObject) -> None:
+        # Ignore the mouse events, as the change events will update the context tree
+        logging.debug("mouse entered event ignored")
+
+    def _mouse_exited_cp(self, source: JavaObject) -> None:
+        # Ignore the mouse events, as the change events will update the context tree
+        logging.debug("mouse exited event ignored")
+
+    def _mouse_pressed_cp(self, source: JavaObject) -> None:
+        # Ignore the mouse events, as the change events will update the context tree
+        logging.debug("mouse pressed event ignored")
+
+    def _mouse_released_cp(self, source: JavaObject) -> None:
+        # Ignore the mouse events, as the change events will update the context tree
+        logging.debug("mouse released event ignored")
+
+    def _popup_menu_canceled_cp(self, source: JavaObject) -> None:
+        # Ignore the popup events
+        logging.debug("popup menu canceled event ignored")
+
+    def _popup_menu_will_become_invisible_cp(self, source: JavaObject) -> None:
+        # Ignore the popup events
+        logging.debug("popup menu will become invisible event ignored")
+
+    def _popup_menu_will_become_visible_cp(self, source: JavaObject) -> None:
+        # Ignore the popup events
+        logging.debug("popup menu will become visible event ignored")
 
     def _register_callbacks(self) -> None:
         """
         Register callbacks to the jab wrapper when context updated events
         are generated from the Access Bridge
         """
-        self._jab_wrapper.register_callback("property_changed", self._property_changed_cp)
-        self._jab_wrapper.register_callback("property_text_changed", self._update_node_cp)
+        # Property change event handlers
+        self._jab_wrapper.register_callback("property_change", self._property_change_cp)
         self._jab_wrapper.register_callback("property_name_change", self._property_name_change_cp)
         self._jab_wrapper.register_callback("property_description_change", self._property_description_change_cp)
         self._jab_wrapper.register_callback("property_state_change", self._property_state_change_cp)
-        self._jab_wrapper.register_callback("menu_selected", self._update_node_cp)
-        self._jab_wrapper.register_callback("menu_deselected", self._update_node_cp)
-        self._jab_wrapper.register_callback("menu_calceled", self._update_node_cp)
-        self._jab_wrapper.register_callback("focus_gained", self._update_node_cp)
-        self._jab_wrapper.register_callback("focus_lost", self._update_node_cp)
-        self._jab_wrapper.register_callback("mouse_clicked", self._update_node_cp)
-        self._jab_wrapper.register_callback("mouse_entered", self._update_node_cp)
-        self._jab_wrapper.register_callback("mouse_exited", self._update_node_cp)
-        self._jab_wrapper.register_callback("mouse_pressed", self._update_node_cp)
-        self._jab_wrapper.register_callback("mouse_released", self._update_node_cp)
-        self._jab_wrapper.register_callback("popup_menu_canceled", self._update_node_cp)
-        self._jab_wrapper.register_callback("popup_menu_will_become_invisible", self._update_node_cp)
-        self._jab_wrapper.register_callback("popup_menu_will_become_visible", self._update_node_cp)
-
-    @log_exec_time
-    def refresh(self) -> None:
-        """
-        Refresh the context tree
-        """
-        self.root.refresh()
+        self._jab_wrapper.register_callback("property_value_change", self._property_value_change_cp)
+        self._jab_wrapper.register_callback("property_selection_change", self._property_selection_change_cp)
+        self._jab_wrapper.register_callback("property_text_change", self._property_text_change_cp)
+        self._jab_wrapper.register_callback("property_caret_change", self._property_caret_change_cp)
+        self._jab_wrapper.register_callback("property_visible_data_change", self._visible_data_change_cp)
+        self._jab_wrapper.register_callback("property_child_change", self._property_child_change_cp)
+        self._jab_wrapper.register_callback("property_active_descendent_change", self._property_active_descendent_change_cp)
+        self._jab_wrapper.register_callback("property_table_model_change", self._property_table_model_change_cp)
+        # Menu event handlers
+        self._jab_wrapper.register_callback("menu_selected", self._menu_selected_cp)
+        self._jab_wrapper.register_callback("menu_deselected", self._menu_deselected_cp)
+        self._jab_wrapper.register_callback("menu_calceled", self._menu_canceled_cp)
+        # Focus event handlers
+        self._jab_wrapper.register_callback("focus_gained", self._focus_gained_cp)
+        self._jab_wrapper.register_callback("focus_lost", self._focus_lost_cp)
+        # Caret update event handler
+        self._jab_wrapper.register_callback("caret_update", self._caret_update_cp)
+        # Mouse events
+        self._jab_wrapper.register_callback("mouse_clicked", self._mouse_clicked_cp)
+        self._jab_wrapper.register_callback("mouse_entered", self._mouse_entered_cp)
+        self._jab_wrapper.register_callback("mouse_exited", self._mouse_exited_cp)
+        self._jab_wrapper.register_callback("mouse_pressed", self._mouse_pressed_cp)
+        self._jab_wrapper.register_callback("mouse_released", self._mouse_released_cp)
+        # Popup menu events
+        self._jab_wrapper.register_callback("popup_menu_canceled", self._popup_menu_canceled_cp)
+        self._jab_wrapper.register_callback("popup_menu_will_become_invisible", self._popup_menu_will_become_invisible_cp)
+        self._jab_wrapper.register_callback("popup_menu_will_become_visible", self._popup_menu_will_become_visible_cp)
 
     def get_by_attrs(self, search_elements: List[SearchElement]) -> List[ContextNode]:
         """
