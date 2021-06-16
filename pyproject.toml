@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "java-access-bridge-wrapper"
-version = "0.0.3"
+version = "0.0.4"
 description = "Python wrapper for the Windows Java Access Bridge"
 license = "Apache-2.0"
 readme = "README.md"
@@ -14,6 +14,7 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3.6",
     "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9"
@@ -24,7 +25,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.7.5"
+python = "^3.6.2"
 
 [tool.poetry.dev-dependencies]
 flake8 = "^3.9.2"
