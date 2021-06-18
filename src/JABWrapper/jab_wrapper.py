@@ -120,6 +120,8 @@ class _ReleaseEvent:
 
 class JavaAccessBridgeWrapper:
     def __init__(self) -> None:
+        if "WindowsAccessBridge" not in os.environ:
+            raise APIException("Environment variable: WindowsAccessBridge not found")
         self._wab: cdll = cdll.LoadLibrary(os.environ['WindowsAccessBridge'])
         self._define_functions()
         self._define_callbacks()

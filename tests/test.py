@@ -43,8 +43,8 @@ def pump_background(pipe: queue.Queue):
             TranslateMessage(message)
             logging.debug("Dispatching msg={}".format(repr(message)))
             DispatchMessage(message)
-    except Exception as e:
-        logging.error(e)
+    except Exception as err:
+        logging.error(err)
         pipe.put(None)
     finally:
         logging.info("Stopped processing events")
@@ -103,6 +103,8 @@ def main():
         thread = threading.Thread(target=pump_background, daemon=True, args=[pipe])
         thread.start()
         jab_wrapper = pipe.get()
+        if not jab_wrapper:
+            raise Exception("Failed to initialize Java Access Bridge Wrapper")
         time.sleep(1)
 
         # Init the JavaAccessBridge to certain window
