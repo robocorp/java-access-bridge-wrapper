@@ -119,6 +119,7 @@ class ContextNode:
         self._lock = lock
         self.ancestry = ancestry
         self._context: JavaObject = context
+        self.state = None
         self._parse_context()
         self.children: list[ContextNode] = []
         self._parse_children()
@@ -287,8 +288,11 @@ class ContextTree:
                 logging.debug(f"Description changed from={old_value} to={new_value} for node={node}")
 
     def _property_state_change_cp(self, source: JavaObject, old_value: str, new_value: str) -> None:
-        # The property state is not stored in the node component, only the possible states node can have
-        logging.debug("Property state change event event ignored")
+        with self._lock:
+            node: ContextNode = self.root._get_node_by_context(source)
+            if node:
+                node.state = new_value
+                logging.debug(f"State changed from={old_value} to={new_value} for node={node}")
 
     def _property_value_change_cp(self, source: JavaObject, old_value: str, new_value: str) -> None:
         with self._lock:
