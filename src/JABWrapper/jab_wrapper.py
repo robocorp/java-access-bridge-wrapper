@@ -145,27 +145,80 @@ class JavaAccessBridgeWrapper:
         self._remove_callbacks()
 
     def _define_functions(self) -> None:
-        # BOOL isJavaWindow(HWND window)
-        self._wab.isJavaWindow.argtypes = [wintypes.HWND]
-        self._wab.isJavaWindow.restype = wintypes.BOOL
         # void Windows_run()
         self._wab.Windows_run.argtypes = []
         self._wab.Windows_run.restype = None
-        # BOOL GetAccessibleContextFromHWND(HWND window, *vmID, *context)
-        self._wab.getAccessibleContextFromHWND.argtypes = [wintypes.HWND, POINTER(c_long), POINTER(JavaObject)]
-        self._wab.getAccessibleContextFromHWND.restype = wintypes.BOOL
+
         # void ReleaseJavaObject(long vmID, AccessibleContext context)
         self._wab.releaseJavaObject.argtypes = [c_long, JavaObject]
         self._wab.releaseJavaObject.restype = None
+
+        # BOOL GetVersionInfo(long vmID, AccessBridgeVersionInfo *info)
+        self._wab.getVersionInfo.argtypes = [c_long, POINTER(AccessBridgeVersionInfo)]
+        self._wab.getVersionInfo.restype = wintypes.BOOL
+
+        # Accessible context
+        # BOOL isJavaWindow(HWND window)
+        self._wab.isJavaWindow.argtypes = [wintypes.HWND]
+        self._wab.isJavaWindow.restype = wintypes.BOOL
+        # BOOL isSameObject(long vmID, AccessibleContext context_from, AccessibleContext context_to)
+        self._wab.isSameObject.argtypes = [c_long, JavaObject, JavaObject]
+        self._wab.isSameObject.restypes = wintypes.BOOL
+        # BOOL GetAccessibleContextFromHWND(HWND window, *vmID, *context)
+        self._wab.getAccessibleContextFromHWND.argtypes = [wintypes.HWND, POINTER(c_long), POINTER(JavaObject)]
+        self._wab.getAccessibleContextFromHWND.restype = wintypes.BOOL
+        # TODO: getHWNDFromAccessibleContext
+        # TODO: getAccessibleContextAt
+        # TODO: getAccessibleContextWithFocus
         # BOOL getAccessibleContextInfo(long vmID, AccessibleContext context, AccessibleContextInfo *info)
         self._wab.getAccessibleContextInfo.argtypes = [c_long, JavaObject, POINTER(AccessibleContextInfo)]
         self._wab.getAccessibleContextInfo.restype = wintypes.BOOL
         # AccessibleContext getAccessibleChildFromContext(long vmID, AccessibleContext context, int integer)
         self._wab.getAccessibleChildFromContext.argtypes = [c_long, JavaObject, c_int]
         self._wab.getAccessibleChildFromContext.restype = JavaObject
-        # BOOL GetVersionInfo(long vmID, AccessBridgeVersionInfo *info)
-        self._wab.getVersionInfo.argtypes = [c_long, POINTER(AccessBridgeVersionInfo)]
-        self._wab.getVersionInfo.restype = wintypes.BOOL
+        # TODO: getAccessibleParentFromContext
+
+        # Accessible table
+        # TODO: getAccessibleTableInfo
+        # TODO: getAccessibleTableCellInfo
+        # TODO: getAccessibleTableRowHeader
+        # TODO: getAccessibleTableColumnHeader
+        # TODO: getAccessibleTableRowDescription
+        # TODO: getAccessibleTableColumnDescription
+        # TODO: getAccessibleTableRowSelectionCount
+        # TODO: isAccessibleTableRowSelected
+        # TODO: getAccessibleTableRowSelections
+        # TODO: getAccessibleTableColumnSelectionCount
+        # TODO: isAccessibleTableColumnSelected
+        # TODO: getAccessibleTableColumnSelections
+        # TODO: getAccessibleTableRow
+        # TODO: getAccessibleTableColumn
+        # TODO: getAccessibleTableIndex
+
+        # AccessibleRelationSet
+        # TODO: getAccessibleRelationSet
+
+        # AccessibleHypertext
+        # TODO: getAccessibleHypertext
+        # TODO: activateAccessibleHyperlink
+        # TODO: getAccessibleHyperlinkCount
+        # TODO: getAccessibleHypertextExt
+        # TODO: getAccessibleHypertextLinkIndex
+        # TODO: getAccessibleHyperlink
+
+        # Accessible KeyBindings, Icons and Actions
+        # BOOL getAccessibleKeyBindings(long vmID, AccessibleContext context, AccessibleKeyBindings *bindings)
+        self._wab.getAccessibleKeyBindings.argtypes = [c_long, JavaObject, POINTER(AccessibleKeyBindings)]
+        self._wab.getAccessibleKeyBindings.restypes = wintypes.BOOL
+        # TODO: getAccessibleIcons
+        # BOOL getAccessibleActions(long vmID, AccessibleContext context, AccessibleActions *actions)
+        self._wab.getAccessibleActions.argtypes = [c_long, JavaObject, POINTER(AccessibleActions)]
+        self._wab.getAccessibleActions.restypes = wintypes.BOOL
+        # BOOL doAccessibleActions(long vmID, AccessibleContext context, AccessibleActionsToDo actionsToDo, bool *result, int *failure_index)
+        self._wab.doAccessibleActions.argtypes = [c_long, JavaObject, AccessibleActionsToDo, POINTER(c_int)]
+        self._wab.doAccessibleActions.restypes = wintypes.BOOL
+
+        # AccessibleText
         # AccessibleTextInfo GetAccessibleTextInfo(long vmID, AccessibleContext context, AccessibleTextInfo *info, int x, int y)
         self._wab.getAccessibleTextInfo.argtypes = [c_long, JavaObject, POINTER(AccessibleTextInfo), c_int, c_int]
         self._wab.getAccessibleTextInfo.restype = wintypes.BOOL
@@ -175,30 +228,49 @@ class JavaAccessBridgeWrapper:
         # BOOL GetAccessibleTextSelectionInfo(long vmID, AccessibleContext context, AccessibleTextSelectionInfo *textSelection)
         self._wab.getAccessibleTextSelectionInfo.argtypes = [c_long, JavaObject, POINTER(AccessibleTextSelectionInfo)]
         self._wab.getAccessibleTextSelectionInfo.restype = wintypes.BOOL
-        # BOOL GetCurrentAccessibleValueFromContext(long vmID, AccessibleContext context, wintypes.WCHAR *value, short len)
+        # TODO: getAccessibleTextAttributes
+        # TODO: getAccessibleTextRect
+        # TODO: getAccessibleTextLineBounds
+        # TODO: getAccessibleTextRange
+
+        # AccessibleValue
+        # BOOL getCurrentAccessibleValueFromContext(long vmID, AccessibleContext context, wintypes.WCHAR *value, short len)
         self._wab.getCurrentAccessibleValueFromContext.argtypes = [c_long, JavaObject, POINTER(wintypes.WCHAR), c_short]
         self._wab.getCurrentAccessibleValueFromContext.restype = wintypes.BOOL
-        # BOOL getAccessibleActions(long vmID, AccessibleContext context, AccessibleActions *actions)
-        self._wab.getAccessibleActions.argtypes = [c_long, JavaObject, POINTER(AccessibleActions)]
-        self._wab.getAccessibleActions.restypes = wintypes.BOOL
-        # BOOL doAccessibleActions(long vmID, AccessibleContext context, AccessibleActionsToDo actionsToDo, bool *result, int *failure_index)
-        self._wab.doAccessibleActions.argtypes = [c_long, JavaObject, AccessibleActionsToDo, POINTER(c_int)]
-        self._wab.doAccessibleActions.restypes = wintypes.BOOL
+        # TODO: getMaximumAccessibleValueFromContext
+        # TODO: getMinimumAccessibleValueFromContext
+
+        # AccessibleSelection
+        # TODO: addAccessibleSelectionFromContext
+        # TODO: clearAccessibleSelectionFromContext
+        # TODO: getAccessibleSelectionFromContext
+        # TODO: getAccessibleSelectionCountFromContext
+        # TODO: isAccessibleChildSelectedFromContext
+        # TODO: removeAccessibleSelectionFromContext
+        # TODO: selectAllAccessibleSelectionFromContext
+
+        # Utility
         # BOOL setTextContents(long vmID, AccessibleContext context, str text)
         self._wab.setTextContents.argtypes = [c_long, JavaObject, wintypes.WCHAR * MAX_STRING_SIZE]
         self._wab.setTextContents.restypes = wintypes.BOOL
-        # BOOL requestFocus(long vmID, AccessibleContext context)
-        self._wab.requestFocus.argtypes = [c_long, JavaObject]
-        self._wab.requestFocus.restypes = wintypes.BOOL
-        # BOOL getAccessibleKeyBindings(long vmID, AccessibleContext context, AccessibleKeyBindings *bindings)
-        self._wab.getAccessibleKeyBindings.argtypes = [c_long, JavaObject, POINTER(AccessibleKeyBindings)]
-        self._wab.getAccessibleKeyBindings.restypes = wintypes.BOOL
-        # BOOL isSameObject(long vmID, AccessibleContext context_from, AccessibleContext context_to)
-        self._wab.isSameObject.argtypes = [c_long, JavaObject, JavaObject]
-        self._wab.isSameObject.restypes = wintypes.BOOL
+        # TODO: getParentWithRole
+        # TODO: getParentWithRoleElseRoot
+        # TODO: getTopLevelObject
+        # TODO: getObjectDepth
+        # TODO: getActiveDescendent
         # BOOL getVirtualAccessibleNameFP(long vmID, AccessibleContext context, str name, int len)
         self._wab.getVirtualAccessibleName.argtypes = [c_long, JavaObject, wintypes.WCHAR * MAX_STRING_SIZE, c_int]
         self._wab.getVirtualAccessibleName.restype = wintypes.BOOL
+        # BOOL requestFocus(long vmID, AccessibleContext context)
+        self._wab.requestFocus.argtypes = [c_long, JavaObject]
+        self._wab.requestFocus.restypes = wintypes.BOOL
+        # TODO: selectTextRange
+        # TODO: getTextAttributesInRange
+        # TODO: getVisibleChildrenCount
+        # TODO: getVisibleChildren
+        # TODO: setCaretPosition
+        # TODO: getCaretLocation
+        # TODO: getEventsWaitingFP
 
     def _define_callbacks(self) -> None:
         # Property events
