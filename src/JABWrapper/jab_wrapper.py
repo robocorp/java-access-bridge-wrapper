@@ -17,8 +17,7 @@ from ctypes import (
     cdll,
     WINFUNCTYPE,
     WinError,
-    create_unicode_buffer,
-    ArgumentError
+    create_unicode_buffer
 )
 
 from typing import Callable, List
