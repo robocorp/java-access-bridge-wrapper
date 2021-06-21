@@ -101,6 +101,7 @@ class _AccessibleTextParser(_Parser):
             self.info = jab_wrapper.get_context_text_info(context, self._aci.x, self._aci.y)
             self.items = jab_wrapper.get_accessible_text_items(context, 0)
             self.selection = jab_wrapper.get_accessible_text_selection_info(context)
+            self.attributes_info = jab_wrapper.get_accessible_text_attributes(context, 0)
 
     def __str__(self) -> str:
         if not self._aci.accessibleText:

@@ -1,5 +1,6 @@
 from ctypes import (
     Structure,
+    c_float,
     c_int,
     c_int64,
     wintypes
@@ -70,6 +71,34 @@ class AccessibleTextSelectionInfo(Structure):
         ('selectionStartIndex', c_int),
         ('selectionEndIndex', c_int),
         ('selectedText', wintypes.WCHAR * MAX_STRING_SIZE)
+    ]
+
+
+class AccessibleTextAttributesInfo (Structure):
+    _fields_ = [
+        ("bold", wintypes.BOOL),
+        ("italic", wintypes.BOOL),
+        ("underline", wintypes.BOOL),
+        ("strikethrough", wintypes.BOOL),
+        ("superscript", wintypes.BOOL),
+        ("subscript", wintypes.BOOL),
+
+        ("backgroundColor", wintypes.WCHAR * SHORT_STRING_SIZE),
+        ("foregroundColor", wintypes.WCHAR * SHORT_STRING_SIZE),
+        ("fontFamily", wintypes.WCHAR * SHORT_STRING_SIZE),
+        ("fontSize", c_int),
+
+        ("alignment", c_int),
+        ("bidiLevel", c_int),
+
+        ("firstLineIndent", c_float),
+        ("leftIndent", c_float),
+        ("rightIndent", c_float),
+        ("lineSpacing", c_float),
+        ("spaceAbove", c_float),
+        ("spaceBelow", c_float),
+
+        ("fullAttributesString", wintypes.WCHAR * MAX_STRING_SIZE),
     ]
 
 

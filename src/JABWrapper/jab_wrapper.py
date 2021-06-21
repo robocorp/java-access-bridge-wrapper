@@ -27,6 +27,7 @@ from JABWrapper.jab_types import (
     AccessibleActions,
     AccessibleActionsToDo,
     AccessibleKeyBindings,
+    AccessibleTextAttributesInfo,
     AccessibleTextItemsInfo,
     JavaObject,
     AccessibleContextInfo,
@@ -228,7 +229,9 @@ class JavaAccessBridgeWrapper:
         # BOOL GetAccessibleTextSelectionInfo(long vmID, AccessibleContext context, AccessibleTextSelectionInfo *textSelection)
         self._wab.getAccessibleTextSelectionInfo.argtypes = [c_long, JavaObject, POINTER(AccessibleTextSelectionInfo)]
         self._wab.getAccessibleTextSelectionInfo.restype = wintypes.BOOL
-        # TODO: getAccessibleTextAttributes
+        # BOOL getAccessibleTextAttributes(long vmID, AccessibleContext context, int index, AccessibleTextAttributesInfo *attributesInfo)
+        self._wab.getAccessibleTextAttributes.argtypes = [c_long, JavaObject, c_int, POINTER(AccessibleTextAttributesInfo)]
+        self._wab.getAccessibleTextAttributes.restype = wintypes.BOOL
         # TODO: getAccessibleTextRect
         # TODO: getAccessibleTextLineBounds
         # TODO: getAccessibleTextRange
@@ -498,6 +501,13 @@ class JavaAccessBridgeWrapper:
         if not ok:
             raise APIException("Failed to get accessible text selection info")
         return info
+
+    def get_accessible_text_attributes(self, context: JavaObject, index: int) -> AccessibleTextAttributesInfo:
+        attributes_info = AccessibleTextAttributesInfo()
+        ok = self._wab.getAccessibleTextAttributes(self._vmID, context, index, attributes_info)
+        if not ok:
+            raise APIException("Failed to get accessible text attributes info")
+        return attributes_info
 
     def get_current_accessible_value_from_context(self, context: JavaObject) -> str:
         buf = create_unicode_buffer(SHORT_STRING_SIZE + 1)
