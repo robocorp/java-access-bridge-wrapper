@@ -464,11 +464,7 @@ class JavaAccessBridgeWrapper:
         return key_bindings
 
     def is_same_object(self, context_from: JavaObject, context_to: JavaObject) -> bool:
-        try:
-            return self._wab.isSameObject(self._vmID, context_from, context_to)
-        except ArgumentError as e:
-            logging.error(f"Error matching object={e}")
-            return False
+        return self._wab.isSameObject(self._vmID, context_from, context_to)
 
     def register_callback(self, name: str, callback: Callable[[JavaObject], None]) -> None:
         logging.debug(f"Registering callback={name}")

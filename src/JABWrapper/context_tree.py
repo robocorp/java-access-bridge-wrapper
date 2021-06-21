@@ -1,5 +1,6 @@
 import logging
 import threading
+import time
 from typing import Dict, List
 
 from JABWrapper.jab_wrapper import JavaAccessBridgeWrapper
@@ -12,7 +13,7 @@ from JABWrapper.jab_types import (
     AccessibleTextInfo,
     AccessibleTextSelectionInfo
 )
-from JABWrapper.utils import log_exec_time
+from JABWrapper.utils import log_exec_time, retry_callback
 
 
 class SearchElement:
@@ -143,12 +144,13 @@ class ContextNode:
         """
         Returns a string that represents the object tree with detailed Node values
         """
-        string = "{}C={}, Role={}, Name={}, Desc={}, Sts={}, at x={}:y={} w={} h={}; cc={};".format(
+        string = "{}C={}, Role={}, Name={}, Desc={}, St={}, Sts={}, at x={}:y={} w={} h={}; cc={};".format(
             '  ' * self.ancestry,
             self._context,
             repr(self.aci.role),
             repr(self.aci.name),
             repr(self.aci.description),
+            repr(self.state),
             repr(self.aci.states),
             self.aci.x,
             self.aci.y,
@@ -166,10 +168,11 @@ class ContextNode:
         """
         Returns a string of Node values
         """
-        string = "Role={}, Name={}, Desc={}, Sts={}, at x={}:y={} w={} h={}; cc={};".format(
+        string = "Role={}, Name={}, Desc={}, St={}, Sts={}, at x={}:y={} w={} h={}; cc={};".format(
             repr(self.aci.role),
             repr(self.aci.name),
             repr(self.aci.description),
+            repr(self.state),
             repr(self.aci.states),
             self.aci.x,
             self.aci.y,
@@ -266,6 +269,7 @@ class ContextTree:
     def __str__(self):
         return f"{self.root}"
 
+    @retry_callback
     def _property_change_cp(self, source: JavaObject, property: str, old_value: str, new_value: str) -> None:
         with self._lock:
             node: ContextNode = self.root._get_node_by_context(source)
@@ -273,6 +277,7 @@ class ContextTree:
                 setattr(node.aci, property, new_value)
                 logging.debug(f"Property={property} changed from={old_value} to={new_value} for node={node}")
 
+    @retry_callback
     def _property_name_change_cp(self, source: JavaObject, old_value: str, new_value: str) -> None:
         with self._lock:
             node: ContextNode = self.root._get_node_by_context(source)
@@ -280,6 +285,7 @@ class ContextTree:
                 setattr(node.aci, "name", new_value)
                 logging.debug(f"Name changed from={old_value} to={new_value} for node={node}")
 
+    @retry_callback
     def _property_description_change_cp(self, source: JavaObject, old_value: str, new_value: str) -> None:
         with self._lock:
             node: ContextNode = self.root._get_node_by_context(source)
@@ -287,6 +293,7 @@ class ContextTree:
                 setattr(node.aci, "description", new_value)
                 logging.debug(f"Description changed from={old_value} to={new_value} for node={node}")
 
+    @retry_callback
     def _property_state_change_cp(self, source: JavaObject, old_value: str, new_value: str) -> None:
         with self._lock:
             node: ContextNode = self.root._get_node_by_context(source)
@@ -294,6 +301,7 @@ class ContextTree:
                 node.state = new_value
                 logging.debug(f"State changed from={old_value} to={new_value} for node={node}")
 
+    @retry_callback
     def _property_value_change_cp(self, source: JavaObject, old_value: str, new_value: str) -> None:
         with self._lock:
             node: ContextNode = self.root._get_node_by_context(source)
@@ -301,6 +309,7 @@ class ContextTree:
                 node.avp.value = new_value
                 logging.debug(f"Value changed from={old_value} to={new_value} for node={node}")
 
+    @retry_callback
     def _property_selection_change_cp(self, source: JavaObject) -> None:
         with self._lock:
             node: ContextNode = self.root._get_node_by_context(source)
@@ -308,6 +317,7 @@ class ContextTree:
                 node._parse_context()
                 logging.debug(f"Selected text changed for node={node}")
 
+    @retry_callback
     def _property_text_change_cp(self, source: JavaObject) -> None:
         with self._lock:
             node: ContextNode = self.root._get_node_by_context(source)
@@ -315,10 +325,12 @@ class ContextTree:
                 node._parse_context()
                 logging.debug(f"Text changed for node={node}")
 
+    @retry_callback
     def _property_caret_change_cp(self, source: JavaObject, old_pos: int, new_pos: int) -> None:
         # Caret information is not stored in the node component
         logging.debug("Property caret change event ignored")
 
+    @retry_callback
     def _visible_data_change_cp(self, source: JavaObject) -> None:
         with self._lock:
             node = self.root._get_node_by_context(source)
@@ -326,70 +338,87 @@ class ContextTree:
                 node._update_node()
                 logging.debug(f"Visible data changed for node tree={repr(node)}")
 
+    @retry_callback
     def _property_child_change_cp(self, source: JavaObject, old_child: JavaObject, new_child: JavaObject) -> None:
         # Not needed to track as the visibility change event handles the coordinate update
         logging.debug("Property child change event ignored")
 
+    @retry_callback
     def _property_active_descendent_change_cp(self, source: JavaObject, old_child: JavaObject, new_child: JavaObject) -> None:
         # The activity status is not stored inside the tree model
         logging.debug("Property active descendent change event ignored")
 
+    @retry_callback
     def _property_table_model_change_cp(self, source: JavaObject, old_value: str, new_value: str) -> None:
         # TODO: Add table model parsing
         logging.debug("Property table model change event ignored")
 
+    @retry_callback
     def _menu_selected_cp(self, source: JavaObject) -> None:
         # All menu events can be ignored as the visibility change event already gives needed information update to the context tree
         logging.debug("Menu selected event ignored")
 
+    @retry_callback
     def _menu_deselected_cp(self, source: JavaObject) -> None:
         # All menu events can be ignored as the visibility change event already gives needed information update to the context tree
         logging.debug("Menu deselected event ignored")
 
+    @retry_callback
     def _menu_canceled_cp(self, source: JavaObject) -> None:
         # All menu events can be ignored as the visibility change event already gives needed information update to the context tree
         logging.debug("Menu canceled event ignored")
 
+    @retry_callback
     def _focus_gained_cp(self, source: JavaObject) -> None:
         # State information is not stored in the context tree
         logging.debug("Focus gained event ignored")
 
+    @retry_callback
     def _focus_lost_cp(self, source: JavaObject) -> None:
         # State information is not stored in the context tree
         logging.debug("Focus lost event ignored")
 
+    @retry_callback
     def _caret_update_cp(self, source: JavaObject) -> None:
         # Caret information is not stored in the context tree
         logging.debug("Caret update event ignored")
 
+    @retry_callback
     def _mouse_clicked_cp(self, source: JavaObject) -> None:
         # Ignore the mouse events, as the change events will update the context tree
         logging.debug("mouse clicked event ignored")
 
+    @retry_callback
     def _mouse_entered_cp(self, source: JavaObject) -> None:
         # Ignore the mouse events, as the change events will update the context tree
         logging.debug("mouse entered event ignored")
 
+    @retry_callback
     def _mouse_exited_cp(self, source: JavaObject) -> None:
         # Ignore the mouse events, as the change events will update the context tree
         logging.debug("mouse exited event ignored")
 
+    @retry_callback
     def _mouse_pressed_cp(self, source: JavaObject) -> None:
         # Ignore the mouse events, as the change events will update the context tree
         logging.debug("mouse pressed event ignored")
 
+    @retry_callback
     def _mouse_released_cp(self, source: JavaObject) -> None:
         # Ignore the mouse events, as the change events will update the context tree
         logging.debug("mouse released event ignored")
 
+    @retry_callback
     def _popup_menu_canceled_cp(self, source: JavaObject) -> None:
         # Ignore the popup events
         logging.debug("popup menu canceled event ignored")
 
+    @retry_callback
     def _popup_menu_will_become_invisible_cp(self, source: JavaObject) -> None:
         # Ignore the popup events
         logging.debug("popup menu will become invisible event ignored")
 
+    @retry_callback
     def _popup_menu_will_become_visible_cp(self, source: JavaObject) -> None:
         # Ignore the popup events
         logging.debug("popup menu will become visible event ignored")

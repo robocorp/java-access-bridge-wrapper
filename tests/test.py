@@ -32,6 +32,8 @@ def start_test_application():
     # Run the swing program in background
     logging.info("Opening Java Swing application")
     subprocess.Popen(["java", "-jar", "BasicSwing.jar"], shell=True, cwd=app_path, close_fds=True)
+    # Wait a bit for application to open
+    time.sleep(0.1)
 
 
 def pump_background(pipe: queue.Queue):
@@ -59,7 +61,7 @@ def wait_until_text_contains(element: ContextNode, text: str, retries=10):
     for i in range(retries):
         if text in element.atp.items.sentence:
             return
-        time.sleep(0.01)
+        time.sleep(0.05)
     else:
         write_to_file("context.txt", "\n\n{}".format(str(element)), "a+")
         raise Exception(f"Text={text} not found in element={element}")
@@ -69,7 +71,7 @@ def wait_until_text_cleared(element: ContextNode, retries=10):
     for i in range(retries):
         if element.atp.items.sentence == '':
             return
-        time.sleep(0.01)
+        time.sleep(0.05)
     else:
         write_to_file("context.txt", "\n\n{}".format(str(element)), "a+")
         raise Exception(f"Text element not cleared={element}")
@@ -82,7 +84,7 @@ class MenuClicked:
     def menu_clicked_callback(self, _: JavaObject):
         self._file_menu_clicked = True
 
-    def wait_until_menu_clicked(self, retries=10):
+    def wait_until_menu_clicked(self, retries=100):
         for i in range(retries):
             if self._file_menu_clicked:
                 logging.info("File menu clicked")
