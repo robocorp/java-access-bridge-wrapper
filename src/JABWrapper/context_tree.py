@@ -120,12 +120,14 @@ class ContextNode:
         self.ancestry = ancestry
         self._context: JavaObject = context
         self.state = None
+        self.virtual_accessible_name = None
         self._parse_context()
         self.children: list[ContextNode] = []
         self._parse_children()
 
     def _parse_context(self) -> None:
         self.aci: AccessibleContextInfo = self._jab_wrapper.get_context_info(self._context)
+        self.virtual_accessible_name = self._jab_wrapper.get_virtual_accessible_name(self._context)
         self.atp = _AccessibleTextParser(self.aci)
         self.avp = _AccessibleValueParser(self.aci)
         self._aap = _AccessibleActionsParser(self.aci)
@@ -143,11 +145,12 @@ class ContextNode:
         """
         Returns a string that represents the object tree with detailed Node values
         """
-        string = "{}C={}, Role={}, Name={}, Desc={}, St={}, Sts={}, at x={}:y={} w={} h={}; cc={};".format(
+        string = "{}C={}, Role={}, Name={}, VAN={}, Desc={}, St={}, Sts={}, at x={}:y={} w={} h={}; cc={};".format(
             '  ' * self.ancestry,
             self._context,
             repr(self.aci.role),
             repr(self.aci.name),
+            repr(self.virtual_accessible_name),
             repr(self.aci.description),
             repr(self.state),
             repr(self.aci.states),
@@ -167,9 +170,10 @@ class ContextNode:
         """
         Returns a string of Node values
         """
-        string = "Role={}, Name={}, Desc={}, St={}, Sts={}, at x={}:y={} w={} h={}; cc={};".format(
+        string = "Role={}, Name={}, VAN={}, Desc={}, St={}, Sts={}, at x={}:y={} w={} h={}; cc={};".format(
             repr(self.aci.role),
             repr(self.aci.name),
+            repr(self.virtual_accessible_name),
             repr(self.aci.description),
             repr(self.state),
             repr(self.aci.states),
@@ -197,6 +201,13 @@ class ContextNode:
         self._parse_context()
         self._parse_children()
 
+    def _van_match(self, search_elements: List[SearchElement]) -> bool:
+        for search_element in search_elements:
+            if search_element.name == "VAN":
+                if search_element.value != self.virtual_accessible_name:
+                    return False
+        return True
+
     def get_by_attrs(self, search_elements: List[SearchElement]) -> List:
         """
         Get element with given seach attributes.
@@ -208,8 +219,9 @@ class ContextNode:
         """
         with self._lock:
             elements = list()
+            van_match = self._van_match(search_elements)
             found = all([getattr(self.aci, search_element.name).startswith(search_element.value) for search_element in search_elements])
-            if found:
+            if found and van_match:
                 elements.append(self)
             for child in self.children:
                 child_elements = child.get_by_attrs(search_elements)

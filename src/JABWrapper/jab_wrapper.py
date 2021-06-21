@@ -193,9 +193,12 @@ class JavaAccessBridgeWrapper:
         # BOOL getAccessibleKeyBindings(long vmID, AccessibleContext context, AccessibleKeyBindings *bindings)
         self._wab.getAccessibleKeyBindings.argtypes = [c_long, JavaObject, POINTER(AccessibleKeyBindings)]
         self._wab.getAccessibleKeyBindings.restypes = wintypes.BOOL
-        # BOOL isSameObject(long vmID, AccessibleContext context1, AccessibleContext context2)
+        # BOOL isSameObject(long vmID, AccessibleContext context_from, AccessibleContext context_to)
         self._wab.isSameObject.argtypes = [c_long, JavaObject, JavaObject]
         self._wab.isSameObject.restypes = wintypes.BOOL
+        # BOOL getVirtualAccessibleNameFP(long vmID, AccessibleContext context, str name, int len)
+        self._wab.getVirtualAccessibleName.argtypes = [c_long, JavaObject, wintypes.WCHAR * MAX_STRING_SIZE, c_int]
+        self._wab.getVirtualAccessibleName.restype = wintypes.BOOL
 
     def _define_callbacks(self) -> None:
         # Property events
@@ -464,6 +467,13 @@ class JavaAccessBridgeWrapper:
 
     def is_same_object(self, context_from: JavaObject, context_to: JavaObject) -> bool:
         return self._wab.isSameObject(self._vmID, context_from, context_to)
+
+    def get_virtual_accessible_name(self, context: JavaObject):
+        buf = create_unicode_buffer(MAX_STRING_SIZE)
+        ok = self._wab.getVirtualAccessibleName(self._vmID, context, buf, MAX_STRING_SIZE)
+        if not ok:
+            raise APIException("Failed to get virtual accessible name")
+        return buf.value
 
     def register_callback(self, name: str, callback: Callable[[JavaObject], None]) -> None:
         logging.debug(f"Registering callback={name}")
