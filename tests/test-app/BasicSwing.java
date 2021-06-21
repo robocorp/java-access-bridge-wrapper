@@ -18,7 +18,7 @@ class BasicSwing extends JFrame implements WindowListener, ActionListener {
     public static void main(String[] args) {
         BasicSwing myWindow = new BasicSwing("Chat Frame");
         myWindow.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        myWindow.setSize(450, 450);
+        myWindow.setSize(800, 350);
         myWindow.setLocation(50, 100);
         myWindow.setVisible(true);
     }
@@ -27,7 +27,7 @@ class BasicSwing extends JFrame implements WindowListener, ActionListener {
         super(title);
         addWindowListener(this);
         addMenus();
-        JPanel panel = new JPanel();
+        JPanel taButtonPanel = new JPanel();
         JButton send = new JButton("Send1");
         JButton clear = new JButton("Clear2");
 
@@ -37,19 +37,36 @@ class BasicSwing extends JFrame implements WindowListener, ActionListener {
         label.setVerticalTextPosition(JLabel.CENTER);
 
         text.setText(defaultText);
-
         ta = new JTextArea();
         ta.setFont(ta.getFont().deriveFont(24.0f));
         send.addActionListener(this);
         clear.addActionListener(this);
-        panel.add(send);
-        panel.add(label);
-        panel.add(text);
-        panel.add(clear);
+        taButtonPanel.add(send);
+        taButtonPanel.add(label);
+        taButtonPanel.add(text);
+        taButtonPanel.add(clear);
+
+        String[] columnNames = {"Column1", "Column2"};
+        Object[][] data = {
+            {"Cell11", "Cell12"},
+            {"Cell21", "Cell22"},
+            {"Cell31", "Cell32"}
+        };
+        JTable table = new JTable(data, columnNames);
+        table.setFillsViewportHeight(true);
+
+        JPanel taPanel = new JPanel();
+        taPanel.setLayout(new GridLayout(2, 1));
+
+        taPanel.add(ta);
+        taPanel.add(taButtonPanel);
+
+        JPanel contextPanel = new JPanel(new GridLayout(1, 2));
+        contextPanel.add(table);
+        contextPanel.add(taPanel);
 
         this.getContentPane().add(BorderLayout.NORTH, mb);
-        this.getContentPane().add(BorderLayout.CENTER, ta);
-        this.getContentPane().add(BorderLayout.SOUTH, panel);
+        this.getContentPane().add(BorderLayout.CENTER, contextPanel);
     }
 
     public void createFrame() {

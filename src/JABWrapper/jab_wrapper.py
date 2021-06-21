@@ -8,6 +8,7 @@ from ctypes import (
     c_long,
     c_short,
     c_void_p,
+    c_wchar,
     c_wchar_p,
     wintypes,
     POINTER,
@@ -30,7 +31,9 @@ from JABWrapper.jab_types import (
     AccessibleHypertextInfo,
     AccessibleKeyBindings,
     AccessibleRelationSetInfo,
+    AccessibleTableCellInfo,
     AccessibleTextAttributesInfo,
+    AccessibleTableInfo,
     AccessibleTextItemsInfo,
     AccessibleTextRectInfo,
     JavaObject,
@@ -190,21 +193,49 @@ class JavaAccessBridgeWrapper:
         self._wab.getAccessibleParentFromContext.restype = JavaObject
 
         # Accessible table
-        # TODO: getAccessibleTableInfo
-        # TODO: getAccessibleTableCellInfo
-        # TODO: getAccessibleTableRowHeader
-        # TODO: getAccessibleTableColumnHeader
-        # TODO: getAccessibleTableRowDescription
-        # TODO: getAccessibleTableColumnDescription
-        # TODO: getAccessibleTableRowSelectionCount
-        # TODO: isAccessibleTableRowSelected
-        # TODO: getAccessibleTableRowSelections
-        # TODO: getAccessibleTableColumnSelectionCount
-        # TODO: isAccessibleTableColumnSelected
-        # TODO: getAccessibleTableColumnSelections
-        # TODO: getAccessibleTableRow
-        # TODO: getAccessibleTableColumn
-        # TODO: getAccessibleTableIndex
+        # BOOL getAccessibleTableInfo(long vmID, AccessibleContext context, AccessibleTableInfo *tableInfo)
+        self._wab.getAccessibleTableInfo.argtypes = [c_long, JavaObject, POINTER(AccessibleTableInfo)]
+        self._wab.getAccessibleTableInfo.restype = wintypes.BOOL
+        # BOOL getAccessibleTableCellInfo(long vmID, AccessibleTable accessibleTable, int row, int column, AccessibleTableCellInfo *tableCellInfo)
+        self._wab.getAccessibleTableCellInfo.argtypes = [c_long, JavaObject, c_int, c_int, POINTER(AccessibleTableCellInfo)]
+        self._wab.getAccessibleTableCellInfo.restype = wintypes.BOOL
+        # BOOL getAccessibleTableRowHeader(long vmID, AccessibleContext context, AccessibleTableInfo *tableInfo)
+        self._wab.getAccessibleTableRowHeader.argtypes = [c_long, JavaObject, POINTER(AccessibleTableInfo)]
+        self._wab.getAccessibleTableRowHeader.restype = wintypes.BOOL
+        # BOOL getAccessibleTableColumnHeader(long vmID, AccessibleContext context, AccessibleTableInfo *tableInfo)
+        self._wab.getAccessibleTableColumnHeader.argtypes = [c_long, JavaObject, POINTER(AccessibleTableInfo)]
+        self._wab.getAccessibleTableColumnHeader.restype = wintypes.BOOL
+        # JavaObject getAccessibleTableRowDescription(long vmID, AccessibleContext context, int row)
+        self._wab.getAccessibleTableRowDescription.argtypes = [c_long, JavaObject, c_int]
+        self._wab.getAccessibleTableRowDescription.restype = JavaObject
+        # JavaObject getAccessibleTableColumnDescription(long vmID, AccessibleContext context, int row)
+        self._wab.getAccessibleTableColumnDescription.argtypes = [c_long, JavaObject, c_int]
+        self._wab.getAccessibleTableColumnDescription.restype = JavaObject
+        # int getAccessibleTableRowSelectionCount(long vmID, AccessibleTable table)
+        self._wab.getAccessibleTableRowSelectionCount.argtypes = [c_long, JavaObject]
+        self._wab.getAccessibleTableRowSelectionCount.restype = c_int
+        # BOOL isAccessibleTableRowSelected(long vmID, AccessibleTable table, int row)
+        self._wab.isAccessibleTableRowSelected.argtypes = [c_long, JavaObject, c_int]
+        self._wab.isAccessibleTableRowSelected.restype = wintypes.BOOL
+        # TODO: What interface is this? The java API doesn't shed any more light than the windows bridge implementation
+        # int getAccessibleTableRowSelections(long vmID, AccessibleTable table, int count, int *selections)
+        # int getAccessibleTableColumnSelectionCount(long vmID, AccessibleTable table)
+        self._wab.getAccessibleTableColumnSelectionCount.argtypes = [c_long, JavaObject]
+        self._wab.getAccessibleTableColumnSelectionCount.restype = c_int
+        # BOOL isAccessibleTableColumnSelected(long vmID, AccessibleTable table, int row)
+        self._wab.isAccessibleTableColumnSelected.argtypes = [c_long, JavaObject, c_int]
+        self._wab.isAccessibleTableColumnSelected.restype = wintypes.BOOL
+        # TODO: What interface is this? The java API doesn't shed any more light than the windows bridge implementation
+        # int getAccessibleTableColumnSelections(long vmID, AccessibleTable table, int count, int *selections)
+        # int getAccessibleTableRow(long vmID, AccessibleTable table, int index)
+        self._wab.getAccessibleTableRow.argtypes = [c_long, JavaObject, c_int]
+        self._wab.getAccessibleTableRow.restype = c_int
+        # int getAccessibleTableColumn(long vmID, AccessibleTable table, int index)
+        self._wab.getAccessibleTableColumn.argtypes = [c_long, JavaObject, c_int]
+        self._wab.getAccessibleTableColumn.restype = c_int
+        # int getAccessibleTableIndex(long vmID, AccessibleTable table, int row)
+        self._wab.getAccessibleTableIndex.argtypes = [c_long, JavaObject, c_int, c_int]
+        self._wab.getAccessibleTableIndex.restype = c_int
 
         # AccessibleRelationSet
         # BOOL getAccessibleRelationSet(long vmID, AccessibleContext accessibleContext, AccessibleRelationSetInfo *relationSetInfo)
@@ -267,13 +298,13 @@ class JavaAccessBridgeWrapper:
         self._wab.getAccessibleTextRange.restype = wintypes.BOOL
 
         # AccessibleValue
-        # BOOL getCurrentAccessibleValueFromContext(long vmID, AccessibleContext context, wintypes.WCHAR *value, short len)
+        # BOOL getCurrentAccessibleValueFromContext(long vmID, AccessibleContext context, c_wchar *value, short len)
         self._wab.getCurrentAccessibleValueFromContext.argtypes = [c_long, JavaObject, c_wchar_p, c_short]
         self._wab.getCurrentAccessibleValueFromContext.restype = wintypes.BOOL
-        # BOOL getMaximumAccessibleValueFromContext(long vmID, AccessibleContext context, wintypes.WCHAR *value, short len)
+        # BOOL getMaximumAccessibleValueFromContext(long vmID, AccessibleContext context, c_wchar *value, short len)
         self._wab.getMaximumAccessibleValueFromContext.argtypes = [c_long, JavaObject, c_wchar_p, c_short]
         self._wab.getMaximumAccessibleValueFromContext.restype = wintypes.BOOL
-        # BOOL getMinimumAccessibleValueFromContext(long vmID, AccessibleContext context, wintypes.WCHAR *value, short len)
+        # BOOL getMinimumAccessibleValueFromContext(long vmID, AccessibleContext context, c_wchar *value, short len)
         self._wab.getMinimumAccessibleValueFromContext.argtypes = [c_long, JavaObject, c_wchar_p, c_short]
         self._wab.getMinimumAccessibleValueFromContext.restype = wintypes.BOOL
 
@@ -288,7 +319,7 @@ class JavaAccessBridgeWrapper:
 
         # Utility
         # BOOL setTextContents(long vmID, AccessibleContext context, str text)
-        self._wab.setTextContents.argtypes = [c_long, JavaObject, wintypes.WCHAR * MAX_STRING_SIZE]
+        self._wab.setTextContents.argtypes = [c_long, JavaObject, c_wchar * MAX_STRING_SIZE]
         self._wab.setTextContents.restypes = wintypes.BOOL
         # TODO: getParentWithRole
         # TODO: getParentWithRoleElseRoot
@@ -296,7 +327,7 @@ class JavaAccessBridgeWrapper:
         # TODO: getObjectDepth
         # TODO: getActiveDescendent
         # BOOL getVirtualAccessibleNameFP(long vmID, AccessibleContext context, str name, int len)
-        self._wab.getVirtualAccessibleName.argtypes = [c_long, JavaObject, wintypes.WCHAR * MAX_STRING_SIZE, c_int]
+        self._wab.getVirtualAccessibleName.argtypes = [c_long, JavaObject, c_wchar * MAX_STRING_SIZE, c_int]
         self._wab.getVirtualAccessibleName.restype = wintypes.BOOL
         # BOOL requestFocus(long vmID, AccessibleContext context)
         self._wab.requestFocus.argtypes = [c_long, JavaObject]
@@ -523,11 +554,66 @@ class JavaAccessBridgeWrapper:
             raise APIException("Failed to get accessible context at={x},{y}")
         return context
 
-    def get_child_context(self, context: JavaObject, index: c_int, ) -> JavaObject:
+    def get_child_context(self, context: JavaObject, index: int, ) -> JavaObject:
         return self._wab.getAccessibleChildFromContext(self._vmID, context, index)
 
     def get_accessible_parent_from_context(self, context) -> JavaObject:
         return self._wab.getAccessibleParentFromContext(self._vmID, context)
+
+    def get_accessible_table_info(self, context: JavaObject) -> AccessibleTableInfo:
+        table_info = AccessibleTableInfo()
+        ok = self._wab.getAccessibleTableInfo(self._vmID, context, byref(table_info))
+        if not ok:
+            raise APIException("Failed to get accessible table info")
+        return table_info
+
+    def get_accessible_table_cell_info(self, table_context: JavaObject, row: int, column: int) -> AccessibleTableCellInfo:
+        table_cell_info = AccessibleTableCellInfo()
+        ok = self._wab.getAccessibleTableCellInfo(self._vmID, table_context, row, column, byref(table_cell_info))
+        if not ok:
+            raise APIException(f"Failed to get accessible table cell info at={row},{column}")
+        return table_cell_info
+
+    def get_accessible_table_row_header(self, context) -> AccessibleTableInfo:
+        table_info = AccessibleTableInfo()
+        ok = self._wab.getAccessibleTableRowHeader(self._vmID, context, byref(table_info))
+        if not ok:
+            raise APIException("Failed to get accessible table row header")
+        return table_info
+
+    def get_accessible_table_column_header(self, context) -> AccessibleTableInfo:
+        table_info = AccessibleTableInfo()
+        ok = self._wab.getAccessibleTableColumnHeader(self._vmID, context, byref(table_info))
+        if not ok:
+            raise APIException("Failed to get accessible table column header")
+        return table_info
+
+    def get_accessible_table_row_description(self, context: JavaObject, row: int) -> JavaObject:
+        return self._wab.getAccessibleTableRowDescription(self._vmID, context, row)
+
+    def get_accessible_table_column_description(self, context: JavaObject, column: int) -> JavaObject:
+        return self._wab.getAccessibleTableColumnDescription(self._vmID, context, column)
+
+    def get_accessible_table_row_selection_count(self, table_context: JavaObject) -> int:
+        return self._wab.getAccessibleTableRowSelectionCount(self._vmID, table_context)
+
+    def is_accessible_table_row_selected(self, table_context: JavaObject, row: int) -> bool:
+        return self._wab.isAccessibleTableRowSelected(self._vmID, table_context, row)
+
+    def get_accessible_table_row(self, table_context: JavaObject, index: int) -> int:
+        return self._wab.getAccessibleTableRow(self._vmID, table_context, index)
+
+    def get_accessible_table_column(self, table_context: JavaObject, index: int) -> int:
+        return self._wab.getAccessibleTableColumn(self._vmID, table_context, index)
+
+    def get_accessible_table_index(self, table_context: JavaObject, row: int, column: int) -> int:
+        return self._wab.getAccessibleTableIndex(self._vmID, table_context, row, column)
+
+    def get_accessible_table_column_selection_count(self, table_context: JavaObject) -> int:
+        return self._wab.getAccessibleTableColumnSelectionCount(self._vmID, table_context)
+
+    def is_accessible_table_column_selected(self, table_context: JavaObject, row: int) -> bool:
+        return self._wab.isAccessibleTableColumnSelected(self._vmID, table_context, row)
 
     def get_accessible_relation_set_info(self, context: JavaObject) -> AccessibleRelationSetInfo:
         relation_set_info = AccessibleRelationSetInfo()
@@ -584,16 +670,16 @@ class JavaAccessBridgeWrapper:
             raise APIException(f"Failed to get accessible hypertext link info at index={index}")
         return hyperlink_info
 
-    def get_context_text_info(self, context: JavaObject, x: c_int, y: c_int) -> AccessibleTextInfo:
+    def get_context_text_info(self, context: JavaObject, x: int, y: int) -> AccessibleTextInfo:
         info = AccessibleTextInfo()
         ok = self._wab.getAccessibleTextInfo(self._vmID, context, byref(info), x, y)
         if not ok:
             raise APIException("Failed to get accessible text info")
         return info
 
-    def get_accessible_text_items(self, context: JavaObject, index: c_int) -> AccessibleTextItemsInfo:
+    def get_accessible_text_items(self, context: JavaObject, index: int) -> AccessibleTextItemsInfo:
         info = AccessibleTextItemsInfo()
-        ok = self._wab.getAccessibleTextItems(self._vmID, context, byref(info), 0)
+        ok = self._wab.getAccessibleTextItems(self._vmID, context, byref(info), index)
         if not ok:
             raise APIException("Failed to get accessible text  context")
         return info
@@ -627,7 +713,7 @@ class JavaAccessBridgeWrapper:
             raise APIException(f"Failed to get accessible text line bounds at={index}")
         return start_index, end_index
 
-    def get_accessible_text_range(self, context: JavaObject, start_index: c_int, end_index: c_int, length: c_short) -> str:
+    def get_accessible_text_range(self, context: JavaObject, start_index: int, end_index: int, length: c_short) -> str:
         buf = create_unicode_buffer(length)
         ok = self._wab.getAccessibleTextRange(self._vmID, context, start_index, end_index, buf, length)
         if not ok:

@@ -22,6 +22,11 @@ TranslateMessage = ctypes.windll.user32.TranslateMessage
 DispatchMessage = ctypes.windll.user32.DispatchMessageW
 
 
+def dump(obj):
+    for attr in dir(obj):
+        print("obj.%s = %r" % (attr, getattr(obj, attr)))
+
+
 def start_test_application():
     app_path = os.path.join(os.path.abspath(os.path.curdir), "tests", "test-app")
     # Compile the simple java program
@@ -31,9 +36,9 @@ def start_test_application():
         sys.exit(returncode)
     # Run the swing program in background
     logging.info("Opening Java Swing application")
-    subprocess.Popen(["java", "-jar", "BasicSwing.jar"], shell=True, cwd=app_path, close_fds=True)
+    subprocess.Popen(["java", "BasicSwing"], shell=True, cwd=app_path, close_fds=True)
     # Wait a bit for application to open
-    time.sleep(0.1)
+    time.sleep(0.5)
 
 
 def pump_background(pipe: queue.Queue):
@@ -107,7 +112,7 @@ def main():
         jab_wrapper = pipe.get()
         if not jab_wrapper:
             raise Exception("Failed to initialize Java Access Bridge Wrapper")
-        time.sleep(1)
+        time.sleep(0.1)
 
         # Init the JavaAccessBridge to certain window
         jab_wrapper.switch_window_by_title("Chat Frame")
@@ -129,6 +134,22 @@ def main():
         root_pane = context_info_tree.get_by_attrs([SearchElement("role", "frame")])[0]
         logging.debug("Found element by role (frame): {}".format(root_pane))
         root_pane.request_focus()
+
+        # Get table data
+        # logging.info("Getting table info")
+        # table_field = context_info_tree.get_by_attrs([SearchElement("role", "table")])[0]
+        # cell_info = jab_wrapper.get_accessible_table_cell_info(table_field.tp.table.accessibleTable, 1, 1)
+        # row_header = jab_wrapper.get_accessible_table_row_header(table_field.context)
+        # column_header = jab_wrapper.get_accessible_table_column_header(table_field.context)
+        # row_context = jab_wrapper.get_accessible_table_row_description(table_field.context, 0)
+        # column_context = jab_wrapper.get_accessible_table_column_description(table_field.context, 1)
+        # row_sel_count = jab_wrapper.get_accessible_table_row_selection_count(table_field.tp.table.accessibleTable)
+        # is_row_selected = jab_wrapper.is_accessible_table_row_selected(table_field.tp.table.accessibleTable, 0)
+        # column_sel_count = jab_wrapper.get_accessible_table_column_selection_count(table_field.tp.table.accessibleTable)
+        # is_column_selected = jab_wrapper.is_accessible_table_column_selected(table_field.tp.table.accessibleTable, 1)
+        # row = jab_wrapper.get_accessible_table_row(table_field.tp.table.accessibleTable, 2)
+        # column = jab_wrapper.get_accessible_table_column(table_field.tp.table.accessibleTable, 2)
+        # index = jab_wrapper.get_accessible_table_index(table_field.tp.table.accessibleTable, 2, 2)
 
         # Type text into text field
         text = "Hello World"
@@ -176,7 +197,7 @@ def main():
         logging.debug("Found element by role (push button) and name (Exit ok): {}".format(exit_menu))
         exit_button.click()
     except Exception as e:
-        logging.error(e)
+        logging.error(f"error={e}")
     finally:
         logging.info("Shutting down JAB wrapper")
         if jab_wrapper:

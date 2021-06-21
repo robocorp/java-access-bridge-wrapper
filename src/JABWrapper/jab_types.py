@@ -1,10 +1,11 @@
 from ctypes import (
     Structure,
+    c_bool,
     c_float,
     c_int,
     c_int64,
     c_wchar,
-    wintypes
+    wintypes,
 )
 
 MAX_STRING_SIZE = 1024
@@ -18,6 +19,8 @@ MAX_RELATIONS = 5
 
 MAX_HYPERLINKS = 64
 
+MAX_TABLE_SELECTIONS = 64
+
 MAX_KEY_BINDINGS = 10
 
 
@@ -27,12 +30,12 @@ class JavaObject(c_int64):
 
 class AccessibleContextInfo(Structure):
     _fields_ = [
-        ('name', wintypes.WCHAR * MAX_STRING_SIZE),
-        ('description', wintypes.WCHAR * MAX_STRING_SIZE),
-        ('role', wintypes.WCHAR * SHORT_STRING_SIZE),
-        ('role_en_US', wintypes.WCHAR * SHORT_STRING_SIZE),
-        ('states', wintypes.WCHAR * SHORT_STRING_SIZE),
-        ('states_en_US', wintypes.WCHAR * SHORT_STRING_SIZE),
+        ('name', c_wchar * MAX_STRING_SIZE),
+        ('description', c_wchar * MAX_STRING_SIZE),
+        ('role', c_wchar * SHORT_STRING_SIZE),
+        ('role_en_US', c_wchar * SHORT_STRING_SIZE),
+        ('states', c_wchar * SHORT_STRING_SIZE),
+        ('states_en_US', c_wchar * SHORT_STRING_SIZE),
         ('indexInParent', c_int),
         ('childrenCount', c_int),
         ('x', c_int),
@@ -49,10 +52,10 @@ class AccessibleContextInfo(Structure):
 
 class AccessBridgeVersionInfo(Structure):
     _fields_ = [
-        ('VMversion', wintypes.WCHAR * SHORT_STRING_SIZE),
-        ('bridgeJavaClassVersion', wintypes.WCHAR * SHORT_STRING_SIZE),
-        ('bridgeJavaDLLVersion', wintypes.WCHAR * SHORT_STRING_SIZE),
-        ('bridgeWinDLLVersion', wintypes.WCHAR * SHORT_STRING_SIZE)
+        ('VMversion', c_wchar * SHORT_STRING_SIZE),
+        ('bridgeJavaClassVersion', c_wchar * SHORT_STRING_SIZE),
+        ('bridgeJavaDLLVersion', c_wchar * SHORT_STRING_SIZE),
+        ('bridgeWinDLLVersion', c_wchar * SHORT_STRING_SIZE)
     ]
 
 
@@ -66,9 +69,9 @@ class AccessibleTextInfo(Structure):
 
 class AccessibleTextItemsInfo(Structure):
     _fields_ = [
-        ('letter', wintypes.WCHAR),
-        ('word', wintypes.WCHAR * SHORT_STRING_SIZE),
-        ('sentence', wintypes.WCHAR * MAX_STRING_SIZE)
+        ('letter', c_wchar),
+        ('word', c_wchar * SHORT_STRING_SIZE),
+        ('sentence', c_wchar * MAX_STRING_SIZE)
     ]
 
 
@@ -76,11 +79,11 @@ class AccessibleTextSelectionInfo(Structure):
     _fields_ = [
         ('selectionStartIndex', c_int),
         ('selectionEndIndex', c_int),
-        ('selectedText', wintypes.WCHAR * MAX_STRING_SIZE)
+        ('selectedText', c_wchar * MAX_STRING_SIZE)
     ]
 
 
-class AccessibleTextAttributesInfo (Structure):
+class AccessibleTextAttributesInfo(Structure):
     _fields_ = [
         ("bold", wintypes.BOOL),
         ("italic", wintypes.BOOL),
@@ -89,9 +92,9 @@ class AccessibleTextAttributesInfo (Structure):
         ("superscript", wintypes.BOOL),
         ("subscript", wintypes.BOOL),
 
-        ("backgroundColor", wintypes.WCHAR * SHORT_STRING_SIZE),
-        ("foregroundColor", wintypes.WCHAR * SHORT_STRING_SIZE),
-        ("fontFamily", wintypes.WCHAR * SHORT_STRING_SIZE),
+        ("backgroundColor", c_wchar * SHORT_STRING_SIZE),
+        ("foregroundColor", c_wchar * SHORT_STRING_SIZE),
+        ("fontFamily", c_wchar * SHORT_STRING_SIZE),
         ("fontSize", c_int),
 
         ("alignment", c_int),
@@ -104,7 +107,7 @@ class AccessibleTextAttributesInfo (Structure):
         ("spaceAbove", c_float),
         ("spaceBelow", c_float),
 
-        ("fullAttributesString", wintypes.WCHAR * MAX_STRING_SIZE),
+        ("fullAttributesString", c_wchar * MAX_STRING_SIZE),
     ]
 
 
@@ -119,7 +122,7 @@ class AccessibleTextRectInfo(Structure):
 
 class AccessibleActionInfo(Structure):
     _fields_ = [
-        ("name", wintypes.WCHAR * SHORT_STRING_SIZE)
+        ("name", c_wchar * SHORT_STRING_SIZE)
     ]
 
 
@@ -139,7 +142,7 @@ class AccessibleActionsToDo(Structure):
 
 class AccessibleRelationInfo(Structure):
     _fields_ = [
-        ("key", wintypes.WCHAR * SHORT_STRING_SIZE),
+        ("key", c_wchar * SHORT_STRING_SIZE),
         ("targetCount", c_int),
         ("targets", JavaObject * MAX_RELATION_TARGETS)
     ]
@@ -171,7 +174,7 @@ class AccessibleHypertextInfo(Structure):
 
 class AccessibleKeyBindingInfo(Structure):
     _fields_ = [
-        ("character", wintypes.WCHAR),
+        ("character", c_wchar),
         ("modifiers", c_int)
     ]
 
@@ -180,4 +183,27 @@ class AccessibleKeyBindings(Structure):
     _fields_ = [
         ("keyBindingsCount", c_int),
         ("AccessibleKeyBindingInfo", AccessibleKeyBindingInfo * MAX_KEY_BINDINGS)
+    ]
+
+
+class AccessibleTableInfo(Structure):
+    _fields_ = [
+        ("caption", JavaObject),
+        ("summary", JavaObject),
+        ("rowCount", c_int),
+        ("columnCount", c_int),
+        ("accessibleContext", JavaObject),
+        ("accessibleTable", JavaObject)
+    ]
+
+
+class AccessibleTableCellInfo(Structure):
+    _fields = [
+        ("accessibleContext", JavaObject),
+        ("index", c_int),
+        ("row", c_int),
+        ("column", c_int),
+        ("rowExtent", c_int),
+        ("columnExtent", c_int),
+        ("isSelected", c_bool)
     ]
