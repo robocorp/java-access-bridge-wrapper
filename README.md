@@ -27,7 +27,6 @@ Run test script against simple Swing application
 # TODO:
 
 * Support for 32-bit Java Access Bridge version
-* Add rest of the callback handlers
 * Add rest of the parsing functions
 * Better API to the ContextNode component
 

@@ -120,9 +120,13 @@ class _ReleaseEvent:
 
 class JavaAccessBridgeWrapper:
     def __init__(self) -> None:
+        logging.debug("Loading WindowsAccessBridge")
         if "WindowsAccessBridge" not in os.environ:
-            raise APIException("Environment variable: WindowsAccessBridge not found")
-        self._wab: cdll = cdll.LoadLibrary(os.environ['WindowsAccessBridge'])
+            raise OSError("Environment variable: WindowsAccessBridge not found")
+        if not os.path.isfile(os.path.normpath(os.environ['WindowsAccessBridge'])):
+            raise FileNotFoundError(f"File not found: {os.environ['WindowsAccessBridge']}")
+        self._wab: cdll = cdll.LoadLibrary(os.path.normpath(os.environ['WindowsAccessBridge']))
+        logging.debug("WindowsAccessBridge loaded succesfully")
         self._define_functions()
         self._define_callbacks()
         self._set_callbacks()
@@ -483,7 +487,6 @@ class JavaAccessBridgeWrapper:
         setattr(self, name, runner)
         return runner
 
-    # TODO: handle additional values (need to find an element to test this)
     def property_change(self, vmID: c_long, event: JavaObject, source: JavaObject, property, old_value, new_value):
         with _ReleaseEvent(self, vmID, "property_change", event, source):
             if 'property_change' in self._context_callbacks:
