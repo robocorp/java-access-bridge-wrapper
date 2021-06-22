@@ -6,7 +6,9 @@ from JABWrapper.jab_wrapper import JavaAccessBridgeWrapper
 from JABWrapper.jab_types import (
     AccessibleActionsToDo,
     AccessibleKeyBindings,
+    AccessibleTextAttributesInfo,
     AccessibleTextItemsInfo,
+    AccessibleTextRectInfo,
     JavaObject,
     AccessibleContextInfo,
     AccessibleTextInfo,
@@ -78,10 +80,14 @@ class _AccessibleValueParser(_Parser):
     def __init__(self, aci: AccessibleContextInfo) -> None:
         self._aci = aci
         self.value = u''
+        self.min = u''
+        self.max = u''
 
     def parse(self, jab_wrapper: JavaAccessBridgeWrapper, context: JavaObject) -> None:
         if self._aci.accessibleValue:
             self.value = jab_wrapper.get_current_accessible_value_from_context(context)
+            self.min = jab_wrapper.get_minimum_accessible_value_from_context(context)
+            self.max = jab_wrapper.get_maximum_accessible_value_from_context(context)
 
     def __str__(self) -> str:
         if not self._aci.accessibleValue:
@@ -95,6 +101,8 @@ class _AccessibleTextParser(_Parser):
         self.info = AccessibleTextInfo()
         self.items = AccessibleTextItemsInfo()
         self.selection = AccessibleTextSelectionInfo()
+        self.attributes_info = AccessibleTextAttributesInfo()
+        self.rect_info = AccessibleTextRectInfo()
 
     def parse(self, jab_wrapper: JavaAccessBridgeWrapper, context: JavaObject) -> None:
         if self._aci.accessibleText:
@@ -102,6 +110,7 @@ class _AccessibleTextParser(_Parser):
             self.items = jab_wrapper.get_accessible_text_items(context, 0)
             self.selection = jab_wrapper.get_accessible_text_selection_info(context)
             self.attributes_info = jab_wrapper.get_accessible_text_attributes(context, 0)
+            self.rect_info = jab_wrapper.get_accessible_text_rect(context, 0)
 
     def __str__(self) -> str:
         if not self._aci.accessibleText:

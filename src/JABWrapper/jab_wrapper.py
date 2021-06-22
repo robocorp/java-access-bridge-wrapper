@@ -27,8 +27,10 @@ from JABWrapper.jab_types import (
     AccessibleActions,
     AccessibleActionsToDo,
     AccessibleKeyBindings,
+    AccessibleRelationSetInfo,
     AccessibleTextAttributesInfo,
     AccessibleTextItemsInfo,
+    AccessibleTextRectInfo,
     JavaObject,
     AccessibleContextInfo,
     AccessibleTextInfo,
@@ -203,7 +205,9 @@ class JavaAccessBridgeWrapper:
         # TODO: getAccessibleTableIndex
 
         # AccessibleRelationSet
-        # TODO: getAccessibleRelationSet
+        # BOOL getAccessibleRelationSet(long vmID, AccessibleContext accessibleContext, AccessibleRelationSetInfo *relationSetInfo)
+        self._wab.getAccessibleRelationSet.argtypes = [c_long, JavaObject, POINTER(AccessibleRelationSetInfo)]
+        self._wab.getAccessibleRelationSet.restype = wintypes.BOOL
 
         # AccessibleHypertext
         # TODO: getAccessibleHypertext
@@ -238,16 +242,26 @@ class JavaAccessBridgeWrapper:
         # BOOL getAccessibleTextAttributes(long vmID, AccessibleContext context, int index, AccessibleTextAttributesInfo *attributesInfo)
         self._wab.getAccessibleTextAttributes.argtypes = [c_long, JavaObject, c_int, POINTER(AccessibleTextAttributesInfo)]
         self._wab.getAccessibleTextAttributes.restype = wintypes.BOOL
-        # TODO: getAccessibleTextRect
-        # TODO: getAccessibleTextLineBounds
-        # TODO: getAccessibleTextRange
+        # BOOL getAccessibleTextRect(long vmID, AccessibleContext context, AccessibleTextRectInfo *rectInfo, int index)
+        self._wab.getAccessibleTextRect.argtypes = [c_long, JavaObject, POINTER(AccessibleTextRectInfo), c_int]
+        self._wab.getAccessibleTextRect.restype = wintypes.BOOL
+        # BOOL getAccessibleTextLineBounds(long vmID, AccessibleContext context, int index, int *startIndex, int *endIndex)
+        self._wab.getAccessibleTextLineBounds.argtypes = [c_long, JavaObject, c_int, POINTER(c_int), POINTER(c_int)]
+        self._wab.getAccessibleTextLineBounds.restype = wintypes.BOOL
+        # BOOL getAccessibleTextRange(long vmID, AccessibleContext context, int start, int end, c_wchar_p *text, short len)
+        self._wab.getAccessibleTextRange.argtypes = [c_long, JavaObject, c_int, c_int, c_wchar_p, c_short]
+        self._wab.getAccessibleTextRange.restype = wintypes.BOOL
 
         # AccessibleValue
         # BOOL getCurrentAccessibleValueFromContext(long vmID, AccessibleContext context, wintypes.WCHAR *value, short len)
-        self._wab.getCurrentAccessibleValueFromContext.argtypes = [c_long, JavaObject, POINTER(wintypes.WCHAR), c_short]
+        self._wab.getCurrentAccessibleValueFromContext.argtypes = [c_long, JavaObject, c_wchar_p, c_short]
         self._wab.getCurrentAccessibleValueFromContext.restype = wintypes.BOOL
-        # TODO: getMaximumAccessibleValueFromContext
-        # TODO: getMinimumAccessibleValueFromContext
+        # BOOL getMaximumAccessibleValueFromContext(long vmID, AccessibleContext context, wintypes.WCHAR *value, short len)
+        self._wab.getMaximumAccessibleValueFromContext.argtypes = [c_long, JavaObject, c_wchar_p, c_short]
+        self._wab.getMaximumAccessibleValueFromContext.restype = wintypes.BOOL
+        # BOOL getMinimumAccessibleValueFromContext(long vmID, AccessibleContext context, wintypes.WCHAR *value, short len)
+        self._wab.getMinimumAccessibleValueFromContext.argtypes = [c_long, JavaObject, c_wchar_p, c_short]
+        self._wab.getMinimumAccessibleValueFromContext.restype = wintypes.BOOL
 
         # AccessibleSelection
         # TODO: addAccessibleSelectionFromContext
@@ -501,6 +515,15 @@ class JavaAccessBridgeWrapper:
     def get_accessible_parent_from_context(self, context) -> JavaObject:
         return self._wab.getAccessibleParentFromContext(self._vmID, context)
 
+    def get_accessible_relation_set_info(self, context: JavaObject) -> AccessibleRelationSetInfo:
+        relation_set_info = AccessibleRelationSetInfo()
+        logging.info("getting rel set")
+        ok = self._wab.getAccessibleRelationSet(self._vmID, context, byref(relation_set_info))
+        logging.info(f"rel set={ok}")
+        if not ok:
+            raise APIException("Failed to get accessible relation set info")
+        return relation_set_info
+
     def get_context_info(self, context: JavaObject) -> AccessibleContextInfo:
         info = AccessibleContextInfo()
         ok = self._wab.getAccessibleContextInfo(self._vmID, context, byref(info))
@@ -543,11 +566,47 @@ class JavaAccessBridgeWrapper:
             raise APIException("Failed to get accessible text attributes info")
         return attributes_info
 
+    def get_accessible_text_rect(self, context: JavaObject, index: int) -> AccessibleTextRectInfo:
+        rect_info = AccessibleTextRectInfo()
+        ok = self._wab.getAccessibleTextRect(self._vmID, context, byref(rect_info), index)
+        if not ok:
+            raise APIException("Failed to get accessible text rect info")
+        return rect_info
+
+    def get_accessible_text_line_bounds(self, context, index) -> Tuple[int, int]:
+        start_index = c_int()
+        end_index = c_int()
+        ok = self._wab.getAccessibleTextLineBounds(self._vmID, context, index, byref(start_index), byref(end_index))
+        if not ok:
+            raise APIException(f"Failed to get accessible text line bounds at={index}")
+        return start_index, end_index
+
+    def get_accessible_text_range(self, context: JavaObject, start_index: c_int, end_index: c_int, length: c_short) -> str:
+        buf = create_unicode_buffer(length)
+        ok = self._wab.getAccessibleTextRange(self._vmID, context, start_index, end_index, buf, length)
+        if not ok:
+            raise APIException("Failed to get accessible range")
+        return buf.value
+
     def get_current_accessible_value_from_context(self, context: JavaObject) -> str:
-        buf = create_unicode_buffer(SHORT_STRING_SIZE + 1)
+        buf = create_unicode_buffer(SHORT_STRING_SIZE)
         ok = self._wab.getCurrentAccessibleValueFromContext(self._vmID, context, buf, SHORT_STRING_SIZE)
         if not ok:
             raise APIException("Failed to get current accessible value from context")
+        return buf.value
+
+    def get_maximum_accessible_value_from_context(self, context: JavaObject) -> str:
+        buf = create_unicode_buffer(SHORT_STRING_SIZE)
+        ok = self._wab.getMaximumAccessibleValueFromContext(self._vmID, context, buf, SHORT_STRING_SIZE)
+        if not ok:
+            raise APIException("Failed to get maximum accessible value from context")
+        return buf.value
+
+    def get_minimum_accessible_value_from_context(self, context: JavaObject) -> str:
+        buf = create_unicode_buffer(SHORT_STRING_SIZE)
+        ok = self._wab.getMinimumAccessibleValueFromContext(self._vmID, context, buf, SHORT_STRING_SIZE)
+        if not ok:
+            raise APIException("Failed to get minimum accessible value from context")
         return buf.value
 
     def get_accessible_actions(self, context: JavaObject) -> AccessibleActions:
