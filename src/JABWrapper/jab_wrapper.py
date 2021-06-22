@@ -20,7 +20,7 @@ from ctypes import (
     create_unicode_buffer
 )
 
-from typing import Callable, List
+from typing import Callable, List, Tuple
 
 from JABWrapper.jab_types import (
     AccessBridgeVersionInfo,
@@ -165,11 +165,15 @@ class JavaAccessBridgeWrapper:
         # BOOL isSameObject(long vmID, AccessibleContext context_from, AccessibleContext context_to)
         self._wab.isSameObject.argtypes = [c_long, JavaObject, JavaObject]
         self._wab.isSameObject.restypes = wintypes.BOOL
-        # BOOL GetAccessibleContextFromHWND(HWND window, *vmID, *context)
+        # BOOL GetAccessibleContextFromHWND(HWND window, long *vmID, AccessibleContext *context)
         self._wab.getAccessibleContextFromHWND.argtypes = [wintypes.HWND, POINTER(c_long), POINTER(JavaObject)]
         self._wab.getAccessibleContextFromHWND.restype = wintypes.BOOL
-        # TODO: getHWNDFromAccessibleContext
-        # TODO: getAccessibleContextAt
+        # HWND getHWNDFromAccessibleContext(long vmID, AccessibleContext context)
+        self._wab.getHWNDFromAccessibleContext.argtypes = [c_long, JavaObject]
+        self._wab.getHWNDFromAccessibleContext.restype = wintypes.HWND
+        # BOOL getAccessibleContextAt(long vmID, AccessibleContext parent, int x, int y, AccessibleContext *context)
+        self._wab.getAccessibleContextAt.argtypes = [c_long, JavaObject, c_int, c_int, POINTER(JavaObject)]
+        self._wab.getAccessibleContextAt.restype = wintypes.BOOL
         # TODO: getAccessibleContextWithFocus
         # BOOL getAccessibleContextInfo(long vmID, AccessibleContext context, AccessibleContextInfo *info)
         self._wab.getAccessibleContextInfo.argtypes = [c_long, JavaObject, POINTER(AccessibleContextInfo)]
@@ -177,7 +181,9 @@ class JavaAccessBridgeWrapper:
         # AccessibleContext getAccessibleChildFromContext(long vmID, AccessibleContext context, int integer)
         self._wab.getAccessibleChildFromContext.argtypes = [c_long, JavaObject, c_int]
         self._wab.getAccessibleChildFromContext.restype = JavaObject
-        # TODO: getAccessibleParentFromContext
+        # JavaObject getAccessibleParentFromContext(c_long vmID, JavaObject child_context)
+        self._wab.getAccessibleParentFromContext.argtypes = [c_long, JavaObject]
+        self._wab.getAccessibleParentFromContext.restype = JavaObject
 
         # Accessible table
         # TODO: getAccessibleTableInfo
@@ -436,6 +442,13 @@ class JavaAccessBridgeWrapper:
 
         return True
 
+    def set_hwnd(self, hwnd: wintypes.HWND) -> None:
+        self._hwnd = hwnd
+
+    def set_context(self, vm_id: c_long, context: JavaObject) -> None:
+        self._vmID = vm_id
+        self.context = context
+
     def get_current_windows_handle(self) -> wintypes.HWND:
         return self._hwnd
 
@@ -464,8 +477,29 @@ class JavaAccessBridgeWrapper:
             self.context,
         ))
 
+    def get_accessible_context_from_hwnd(self, hwnd: wintypes.HWND) -> Tuple[c_long, JavaObject]:
+        vm_id = c_long()
+        context = JavaObject()
+        ok = self._wab.getAccessibleContextFromHWND(hwnd, byref(vm_id), byref(context))
+        if not ok:
+            raise APIException("Failed to get accessible context from HWND")
+        return vm_id, context
+
+    def get_hwnd_from_accessible_context(self, context) -> wintypes.HWND:
+        return self._wab.getHWNDFromAccessibleContext(self._vmID, context)
+
+    def get_accessible_context_at(self, parent: JavaObject, x: int, y: int) -> JavaObject:
+        context = JavaObject()
+        ok = self._wab.getAccessibleContextAt(self._vmID, parent, x, y, byref(context))
+        if not ok:
+            raise APIException("Failed to get accessible context at={x},{y}")
+        return context
+
     def get_child_context(self, context: JavaObject, index: c_int, ) -> JavaObject:
         return self._wab.getAccessibleChildFromContext(self._vmID, context, index)
+
+    def get_accessible_parent_from_context(self, context) -> JavaObject:
+        return self._wab.getAccessibleParentFromContext(self._vmID, context)
 
     def get_context_info(self, context: JavaObject) -> AccessibleContextInfo:
         info = AccessibleContextInfo()
