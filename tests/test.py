@@ -5,7 +5,7 @@ import sys
 import os
 
 import ctypes
-from ctypes import wintypes, byref
+from ctypes import c_int, wintypes, byref
 
 import subprocess
 import threading
@@ -25,13 +25,13 @@ DispatchMessage = ctypes.windll.user32.DispatchMessageW
 def start_test_application():
     app_path = os.path.join(os.path.abspath(os.path.curdir), "tests", "test-app")
     # Compile the simple java program
-    returncode = subprocess.call(["makejar.bat"], shell=True, cwd=app_path, close_fds=True)
+    returncode = subprocess.call(["javac", "BasicSwing.java"], shell=True, cwd=app_path, close_fds=True)
     if returncode > 0:
         logging.error(f"Failed to compile Swing application={returncode}")
         sys.exit(returncode)
     # Run the swing program in background
     logging.info("Opening Java Swing application")
-    subprocess.Popen(["java", "-jar", "BasicSwing.jar"], shell=True, cwd=app_path, close_fds=True)
+    subprocess.Popen(["java", "BasicSwing"], shell=True, cwd=app_path, close_fds=True)
     # Wait a bit for application to open
     time.sleep(0.1)
 
@@ -122,6 +122,7 @@ def main():
         # Parse the element tree of the window
         logging.info("Getting context tree")
         context_info_tree = ContextTree(jab_wrapper)
+        logging.info("Context tree parsed")
         write_to_file("context.txt", repr(context_info_tree))
 
         # Set focus to main frame
@@ -130,8 +131,24 @@ def main():
         logging.debug("Found element by role (frame): {}".format(root_pane))
         root_pane.request_focus()
 
+        logging.info("Activating hyperlink")
+        info: ContextNode = context_info_tree.get_by_attrs([SearchElement("role", "text")])[0]
+        logging.info(f"link count at element={jab_wrapper.get_accessible_hyperlink_count(info._context)}")
+        hypertext = jab_wrapper.get_accessible_hypertext_ext(info._context, 0)
+        logging.info(f"link count at hypertext={hypertext.linkCount}")
+        logging.info(f"first hyperlink at hypertext={hypertext.links[0].text}")
+        link_index = jab_wrapper.get_accessible_hypertext_link_index(hypertext.accessibleHypertext, 1)
+        logging.info(f"link index at hypetext char 0={link_index}")
+        link = jab_wrapper.get_accessible_hyperlink(hypertext.accessibleHypertext, 0)
+        logging.info(f"link text={link.text}")
+        logging.info(f"link start index={link.startIndex}")
+        logging.info(f"link end index={link.endIndex}")
+        jab_wrapper.activate_accessible_hyperlink(info._context, link.accessibleHyperlink)
+        logging.info("Hyperlink activated")
+        time.sleep(0.1)
+
         # Type text into text field
-        text = "Hello World"
+        """text = "Hello World"
         logging.info("Typing text into text field")
         text_field = context_info_tree.get_by_attrs([SearchElement("role", "text")])[0]
         logging.debug("Found element by role (text): {}".format(text_field))
@@ -174,7 +191,7 @@ def main():
         write_to_file("context.txt", "\n\n{}".format(repr(context_info_tree_for_exit_frame)), "a+")
         exit_button = context_info_tree_for_exit_frame.get_by_attrs([SearchElement("role", "push button"), SearchElement("name", "Exit ok")])[0]
         logging.debug("Found element by role (push button) and name (Exit ok): {}".format(exit_menu))
-        exit_button.click()
+        exit_button.click()"""
     except Exception as e:
         logging.error(e)
     finally:

@@ -2,18 +2,27 @@
 //Usually you will require both swing and awt packages
 // even if you are working with just swings.
 import javax.accessibility.Accessible;
+import javax.accessibility.AccessibleHypertext;
 import javax.swing.*;
+import javax.swing.event.HyperlinkEvent;
+import javax.swing.event.HyperlinkListener;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.Document;
+
 import java.awt.*;
 import java.awt.event.*;
+import java.io.IOException;
+import java.net.URISyntaxException;
 import java.time.format.DateTimeFormatter;
 import java.time.LocalDateTime;
 
 class BasicSwing extends JFrame implements WindowListener, ActionListener {
     DateTimeFormatter dtf = DateTimeFormatter.ofPattern("HH:mm:ss");
+    JLabel label = new JLabel();
+    JEditorPane ep = new JEditorPane();
     TextField text = new TextField(20);
     String defaultText = "default text";
     JMenuBar mb;
-    JTextArea ta;
 
     public static void main(String[] args) {
         BasicSwing myWindow = new BasicSwing("Chat Frame");
@@ -31,24 +40,38 @@ class BasicSwing extends JFrame implements WindowListener, ActionListener {
         JButton send = new JButton("Send1");
         JButton clear = new JButton("Clear2");
 
-        JLabel label = new JLabel();
-        label.setText("Comment");
-        label.setHorizontalTextPosition(JLabel.LEFT);
-        label.setVerticalTextPosition(JLabel.CENTER);
+        this.label.setText("Comment");
+        this.label.setHorizontalTextPosition(JLabel.LEFT);
+        this.label.setVerticalTextPosition(JLabel.CENTER);
 
-        text.setText(defaultText);
+        this.text.setText(defaultText);
 
-        ta = new JTextArea();
-        ta.setFont(ta.getFont().deriveFont(24.0f));
+        this.ep.setFont(this.ep.getFont().deriveFont(24.0f));
         send.addActionListener(this);
         clear.addActionListener(this);
         panel.add(send);
         panel.add(label);
-        panel.add(text);
+        panel.add(this.text);
         panel.add(clear);
 
+        this.ep.setContentType("text/html");
+        this.ep.setEditable(false);
+        this.ep.setText("<html><a href='http://www.yahoo.com'>hypertext</a></html>");
+
+        this.ep.addHyperlinkListener(new HyperlinkListener() {
+            public void hyperlinkUpdate(HyperlinkEvent e) {
+                if(e.getEventType() == HyperlinkEvent.EventType.ACTIVATED) {
+                    try {
+                        Desktop.getDesktop().browse(e.getURL().toURI());
+                    } catch (IOException | URISyntaxException exc) {
+                        // exc.printStackTrace();
+                    }
+                }
+            }
+        });
+
         this.getContentPane().add(BorderLayout.NORTH, mb);
-        this.getContentPane().add(BorderLayout.CENTER, ta);
+        this.getContentPane().add(BorderLayout.CENTER, this.ep);
         this.getContentPane().add(BorderLayout.SOUTH, panel);
     }
 
@@ -85,17 +108,25 @@ class BasicSwing extends JFrame implements WindowListener, ActionListener {
         m1.add(m13);
     }
 
+    private void appendTextToEditorPane(String text) {
+        try {
+            Document doc = this.ep.getDocument();
+            doc.insertString(doc.getLength(), text, null);
+         } catch(BadLocationException exc) {
+            // exc.printStackTrace();
+         }
+    }
+
     @Override
     public void actionPerformed(ActionEvent e) {
-        Object obj = e.getSource();
         String objText = e.getActionCommand();
         LocalDateTime now = LocalDateTime.now();
         if (objText == "Send1") {
-            ta.append(dtf.format(now) + " " + text.getText() + "\n");
-            text.setText(defaultText);
+            this.appendTextToEditorPane(dtf.format(now) + " " + text.getText() + "\n");
+            this.text.setText(defaultText);
         } else if (objText == "Clear2") {
-            text.setText(defaultText);
-            ta.setText("");
+            this.text.setText(defaultText);
+            this.ep.setText("");
         } else if (objText == "Exit") {
             createFrame();
         } else if (objText == "Exit ok") {
