@@ -123,11 +123,11 @@ class _ReleaseEvent:
 class JavaAccessBridgeWrapper:
     def __init__(self) -> None:
         logging.debug("Loading WindowsAccessBridge")
-        if "WindowsAccessBridge" not in os.environ:
-            raise OSError("Environment variable: WindowsAccessBridge not found")
-        if not os.path.isfile(os.path.normpath(os.environ['WindowsAccessBridge'])):
-            raise FileNotFoundError(f"File not found: {os.environ['WindowsAccessBridge']}")
-        self._wab: cdll = cdll.LoadLibrary(os.path.normpath(os.environ['WindowsAccessBridge']))
+        if "RC_JAVA_ACCESS_BRIDGE_DLL" not in os.environ:
+            raise OSError("Environment variable: RC_JAVA_ACCESS_BRIDGE_DLL not found")
+        if not os.path.isfile(os.path.normpath(os.environ['RC_JAVA_ACCESS_BRIDGE_DLL'])):
+            raise FileNotFoundError(f"File not found: {os.environ['RC_JAVA_ACCESS_BRIDGE_DLL']}")
+        self._wab: cdll = cdll.LoadLibrary(os.path.normpath(os.environ['RC_JAVA_ACCESS_BRIDGE_DLL']))
         logging.debug("WindowsAccessBridge loaded succesfully")
         self._define_functions()
         self._define_callbacks()

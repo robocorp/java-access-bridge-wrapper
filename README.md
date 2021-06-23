@@ -16,7 +16,7 @@ Enable the Java Access Bridge in windows
 
 Run test script against simple Swing application
 
-* set environment variable `set WindowsAccessBridge=C:\Program Files\Java\jre1.8.0_261\bin\WindowsAccessBridge-64.dll`
+* set environment variable `set RC_JAVA_ACCESS_BRIDGE_DLL=C:\Program Files\Java\jre1.8.0_261\bin\WindowsAccessBridge-64.dll`
 * `poetry run python tests\test.py`
 
 # Packaging
