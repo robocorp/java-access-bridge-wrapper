@@ -3,6 +3,7 @@ from ctypes import (
     c_float,
     c_int,
     c_int64,
+    c_wchar,
     wintypes
 )
 
@@ -12,10 +13,12 @@ SHORT_STRING_SIZE = 256
 MAX_ACTION_INFO = 256
 MAX_ACTIONS_TO_DO = 32
 
-MAX_RELATION_TARGETS = 250
-MAX_RELATIONS = 50
+MAX_RELATION_TARGETS = 25
+MAX_RELATIONS = 5
 
-MAX_KEY_BINDINGS = 50
+MAX_HYPERLINKS = 64
+
+MAX_KEY_BINDINGS = 10
 
 
 class JavaObject(c_int64):
@@ -146,6 +149,23 @@ class AccessibleRelationSetInfo(Structure):
     _fields = [
         ("relationCount", c_int),
         ("AccessibleRelationInfo", AccessibleRelationInfo * MAX_RELATIONS)
+    ]
+
+
+class AccessibleHyperlinkInfo(Structure):
+    _fields_ = [
+        ("text", c_wchar * SHORT_STRING_SIZE),
+        ("startIndex", c_int),
+        ("endIndex", c_int),
+        ("accessibleHyperlink", JavaObject)
+    ]
+
+
+class AccessibleHypertextInfo(Structure):
+    _fields_ = [
+        ("linkCount", c_int),
+        ("links", AccessibleHyperlinkInfo * MAX_HYPERLINKS),
+        ("accessibleHypertext", JavaObject)
     ]
 
 

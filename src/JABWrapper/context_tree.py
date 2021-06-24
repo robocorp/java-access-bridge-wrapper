@@ -5,6 +5,7 @@ from typing import Dict, List
 from JABWrapper.jab_wrapper import JavaAccessBridgeWrapper
 from JABWrapper.jab_types import (
     AccessibleActionsToDo,
+    AccessibleHypertextInfo,
     AccessibleKeyBindings,
     AccessibleTextAttributesInfo,
     AccessibleTextItemsInfo,
@@ -12,7 +13,8 @@ from JABWrapper.jab_types import (
     JavaObject,
     AccessibleContextInfo,
     AccessibleTextInfo,
-    AccessibleTextSelectionInfo
+    AccessibleTextSelectionInfo,
+    MAX_HYPERLINKS
 )
 from JABWrapper.utils import log_exec_time, retry_callback
 
@@ -74,6 +76,32 @@ class _AccessibleActionsParser(_Parser):
 
     def insert_content(self, jab_wrapper: JavaAccessBridgeWrapper, context: JavaObject, text: str) -> None:
         jab_wrapper.set_text_contents(context, text)
+
+
+class _AccessibleHypertextParser(_Parser):
+    def __init__(self, aci: AccessibleContextInfo) -> None:
+        self._aci = aci
+        self.info = AccessibleHypertextInfo()
+
+    def __str__(self) -> str:
+        if not self._aci.accessibleText or self.info.linkCount > MAX_HYPERLINKS or self.info.linkCount < 0:
+            return ""
+        txt = f" links={self.info.linkCount}"
+        for i in range(self.info.linkCount):
+            txt += f", link={self.info.links[i].text}"
+        return txt
+
+    def parse(self, jab_wrapper: JavaAccessBridgeWrapper, context: JavaObject) -> None:
+        """
+        TODO: Identify which elements may contain hypertext.
+
+        From java documentation (https://docs.oracle.com/javase/6/docs/api/javax/accessibility/AccessibleHypertext.html),
+        the AccessibleText element may implement the AccessibleHypertext object, but not all AccessibleText elements do.
+
+        The element JEditorPane.JEditorPaneAccessibleHypertextSupport does implement it, but is identifiable from the AccessibleContextInfo?
+        """
+        if self._aci.accessibleText:
+            self.info = jab_wrapper.get_accessible_hypertext(context)
 
 
 class _AccessibleValueParser(_Parser):
@@ -141,8 +169,9 @@ class ContextNode:
         self.atp = _AccessibleTextParser(self.aci)
         self.avp = _AccessibleValueParser(self.aci)
         self._aap = _AccessibleActionsParser(self.aci)
-        self.akbs = _AccessibleKeyBindingsParser(self.aci)
-        self._parsers: List[_Parser] = [self.atp, self.avp, self._aap, self.akbs]
+        self.akbp = _AccessibleKeyBindingsParser(self.aci)
+        self.htp = _AccessibleHypertextParser(self.aci)
+        self._parsers: List[_Parser] = [self.atp, self.avp, self._aap, self.akbp, self.htp]
         [parser.parse(self._jab_wrapper, self._context) for parser in self._parsers]
 
     def _parse_children(self) -> None:

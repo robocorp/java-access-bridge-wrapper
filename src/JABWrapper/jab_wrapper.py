@@ -26,6 +26,8 @@ from JABWrapper.jab_types import (
     AccessBridgeVersionInfo,
     AccessibleActions,
     AccessibleActionsToDo,
+    AccessibleHyperlinkInfo,
+    AccessibleHypertextInfo,
     AccessibleKeyBindings,
     AccessibleRelationSetInfo,
     AccessibleTextAttributesInfo,
@@ -210,12 +212,24 @@ class JavaAccessBridgeWrapper:
         self._wab.getAccessibleRelationSet.restype = wintypes.BOOL
 
         # AccessibleHypertext
-        # TODO: getAccessibleHypertext
-        # TODO: activateAccessibleHyperlink
-        # TODO: getAccessibleHyperlinkCount
-        # TODO: getAccessibleHypertextExt
-        # TODO: getAccessibleHypertextLinkIndex
-        # TODO: getAccessibleHyperlink
+        # BOOL getAccessibleHypertext(long vmID, AccessibleContext accessibleContext, AccessibleHypertextInfo *hypertextInfo)
+        self._wab.getAccessibleHypertext.argtypes = [c_long, JavaObject, POINTER(AccessibleHypertextInfo)]
+        self._wab.getAccessibleHypertext.restype = wintypes.BOOL
+        # BOOL activateAccessibleHyperlink(long vmID, AccessibleContext accessibleContext, AccessibleHyperlink accessibleHyperlink)
+        self._wab.activateAccessibleHyperlink.argtypes = [c_long, JavaObject, JavaObject]
+        self._wab.activateAccessibleHyperlink.restype = wintypes.BOOL
+        # BOOL getAccessibleHyperlinkCount(long vmID, AccessibleContext accessibleContext)
+        self._wab.getAccessibleHyperlinkCount.argtypes = [c_long, JavaObject]
+        self._wab.getAccessibleHyperlinkCount.restype = c_int
+        # BOOL getAccessibleHypertextExt(long vmID, AccessibleContext accessibleContext, int nStartIndex, AccessibleHypertextInfo *hypertextInfo)
+        self._wab.getAccessibleHypertextExt.argtypes = [c_long, JavaObject, c_int, POINTER(AccessibleHypertextInfo)]
+        self._wab.getAccessibleHypertextExt.restype = wintypes.BOOL
+        # BOOL getAccessibleHypertextLinkIndex(long vmID, AccessibleContext accessibleContext, int charIndex, int *linkIndex)
+        self._wab.getAccessibleHypertextLinkIndex.argtypes = [c_long, JavaObject, c_int]
+        self._wab.getAccessibleHypertextLinkIndex.restype = c_int
+        # BOOL getAccessibleHyperlink(long vmID, AccessibleContext accessibleContext, int index, AccessibleHyperlinkInfo *hyperlinkInfo)
+        self._wab.getAccessibleHyperlink.argtypes = [c_long, JavaObject, c_int, POINTER(AccessibleHyperlinkInfo)]
+        self._wab.getAccessibleHyperlink.restype = wintypes.BOOL
 
         # Accessible KeyBindings, Icons and Actions
         # BOOL getAccessibleKeyBindings(long vmID, AccessibleContext context, AccessibleKeyBindings *bindings)
@@ -537,6 +551,38 @@ class JavaAccessBridgeWrapper:
         if not ok:
             raise APIException("Failed to get version info")
         return info
+
+    def get_accessible_hypertext(self, context: JavaObject) -> AccessibleHypertextInfo:
+        hypertext_info = AccessibleHypertextInfo()
+        ok = self._wab.getAccessibleHypertext(self._vmID, context, byref(hypertext_info))
+        if not ok:
+            raise APIException("Failed to get accessible hypertext info")
+        return hypertext_info
+
+    def activate_accessible_hyperlink(self, context, hyperlink: JavaObject) -> None:
+        ok = self._wab.activateAccessibleHyperlink(self._vmID, context, hyperlink)
+        if not ok:
+            raise APIException("Failed to activate accessible hypertext link")
+
+    def get_accessible_hyperlink_count(self, context: JavaObject) -> int:
+        return self._wab.getAccessibleHyperlinkCount(self._vmID, context)
+
+    def get_accessible_hypertext_ext(self, context: JavaObject, index: int) -> AccessibleHypertextInfo:
+        hypertext_info = AccessibleHypertextInfo()
+        ok = self._wab.getAccessibleHypertextExt(self._vmID, context, index, byref(hypertext_info))
+        if not ok:
+            raise APIException(f"Failed to get accessible hypertext info starting from index={index}")
+        return hypertext_info
+
+    def get_accessible_hypertext_link_index(self, hypertext: JavaObject, char_index: int) -> int:
+        return self._wab.getAccessibleHypertextLinkIndex(self._vmID, hypertext, char_index)
+
+    def get_accessible_hyperlink(self, hypertext: JavaObject, index: int) -> AccessibleHyperlinkInfo:
+        hyperlink_info = AccessibleHyperlinkInfo()
+        ok = self._wab.getAccessibleHyperlink(self._vmID, hypertext, index, byref(hyperlink_info))
+        if not ok:
+            raise APIException(f"Failed to get accessible hypertext link info at index={index}")
+        return hyperlink_info
 
     def get_context_text_info(self, context: JavaObject, x: c_int, y: c_int) -> AccessibleTextInfo:
         info = AccessibleTextInfo()
