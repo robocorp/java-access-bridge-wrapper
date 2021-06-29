@@ -29,6 +29,7 @@ from JABWrapper.jab_types import (
     AccessibleActionsToDo,
     AccessibleHyperlinkInfo,
     AccessibleHypertextInfo,
+    AccessibleIcons,
     AccessibleKeyBindings,
     AccessibleRelationSetInfo,
     AccessibleTableCellInfo,
@@ -266,7 +267,9 @@ class JavaAccessBridgeWrapper:
         # BOOL getAccessibleKeyBindings(long vmID, AccessibleContext context, AccessibleKeyBindings *bindings)
         self._wab.getAccessibleKeyBindings.argtypes = [c_long, JavaObject, POINTER(AccessibleKeyBindings)]
         self._wab.getAccessibleKeyBindings.restypes = wintypes.BOOL
-        # TODO: getAccessibleIcons
+        # BOOL getAccessibleIcons(long vmID, AccessibleContext accessibleContext, AccessibleIcons *icons)
+        self._wab.getAccessibleIcons.argtypes = [c_long, JavaObject, POINTER(AccessibleIcons)]
+        self._wab.getAccessibleIcons.restype = wintypes.BOOL
         # BOOL getAccessibleActions(long vmID, AccessibleContext context, AccessibleActions *actions)
         self._wab.getAccessibleActions.argtypes = [c_long, JavaObject, POINTER(AccessibleActions)]
         self._wab.getAccessibleActions.restypes = wintypes.BOOL
@@ -804,8 +807,15 @@ class JavaAccessBridgeWrapper:
         key_bindings = AccessibleKeyBindings()
         ok = self._wab.getAccessibleKeyBindings(self._vmID, context, byref(key_bindings))
         if not ok:
-            raise APIException("Failed to get key bindings")
+            raise APIException("Failed to get accessible key bindings")
         return key_bindings
+
+    def get_accessible_icons(self, context: JavaObject) -> AccessibleIcons:
+        icons = AccessibleIcons()
+        ok = self._wab.getAccessibleIcons(self._vmID, context, byref(icons))
+        if not ok:
+            raise APIException("Failed to get accessible icons")
+        return icons
 
     def is_same_object(self, context_from: JavaObject, context_to: JavaObject) -> bool:
         return self._wab.isSameObject(self._vmID, context_from, context_to)

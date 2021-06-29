@@ -23,6 +23,8 @@ MAX_TABLE_SELECTIONS = 64
 
 MAX_KEY_BINDINGS = 10
 
+MAX_ICON_INFO = 10
+
 
 class JavaObject(c_int64):
     pass
@@ -183,6 +185,21 @@ class AccessibleKeyBindings(Structure):
     _fields_ = [
         ("keyBindingsCount", c_int),
         ("AccessibleKeyBindingInfo", AccessibleKeyBindingInfo * MAX_KEY_BINDINGS)
+    ]
+
+
+class AccessibleIconInfo(Structure):
+    _fields_ = [
+        ("description", c_wchar * SHORT_STRING_SIZE),
+        ("height", c_int),
+        ("width", c_int)
+    ]
+
+
+class AccessibleIcons(Structure):
+    _fields_ = [
+        ("iconsCount", c_int),
+        ("iconInfo", AccessibleIconInfo * MAX_ICON_INFO)
     ]
 
 

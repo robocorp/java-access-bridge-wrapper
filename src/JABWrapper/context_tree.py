@@ -6,6 +6,7 @@ from JABWrapper.jab_wrapper import JavaAccessBridgeWrapper
 from JABWrapper.jab_types import (
     AccessibleActionsToDo,
     AccessibleHypertextInfo,
+    AccessibleIcons,
     AccessibleKeyBindings,
     AccessibleTableInfo,
     AccessibleTextAttributesInfo,
@@ -61,6 +62,23 @@ class _AccessibleKeyBindingsParser(_Parser):
 
     def parse(self, jab_wrapper: JavaAccessBridgeWrapper, context: JavaObject) -> None:
         self.key_bindings = jab_wrapper.get_accessible_key_bindings(context)
+
+
+class _AccessibleIconParser(_Parser):
+    def __init__(self, aci: AccessibleContextInfo) -> None:
+        self._aci = aci
+        self.icons = AccessibleIcons()
+
+    def __str__(self) -> str:
+        string = f" icons={self.icons.iconsCount}"
+        if self.icons.iconsCount > 0:
+            for index in range(self.icons.iconsCount):
+                info = self.icons.iconInfo[index]
+                string += f" d={info.description} h={info.height} w={info.width}"
+        return string
+
+    def parse(self, jab_wrapper: JavaAccessBridgeWrapper, context: JavaObject) -> None:
+        self.icons = jab_wrapper.get_accessible_icons(context)
 
 
 class _AccessibleActionsParser(_Parser):
@@ -190,7 +208,8 @@ class ContextNode:
         self.akbp = _AccessibleKeyBindingsParser(self.aci)
         self.htp = _AccessibleHypertextParser(self.aci)
         self.tp = _AccessibleTableParser(self.aci)
-        self._parsers: List[_Parser] = [self.atp, self.avp, self._aap, self.akbp, self.htp, self.tp]
+        self.ip = _AccessibleIconParser(self.aci)
+        self._parsers: List[_Parser] = [self.atp, self.avp, self._aap, self.akbp, self.htp, self.tp, self.ip]
         [parser.parse(self._jab_wrapper, self.context) for parser in self._parsers]
 
     def _parse_children(self) -> None:
