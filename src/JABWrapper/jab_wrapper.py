@@ -1,6 +1,5 @@
 import os
 import sys
-import time
 import logging
 
 from ctypes import (
@@ -44,6 +43,7 @@ from JABWrapper.jab_types import (
     MAX_STRING_SIZE,
     SHORT_STRING_SIZE
 )
+from JABWrapper.utils import ReleaseEvent
 
 
 logging_file_handler = logging.FileHandler("jab_wrapper.log", "w", "utf-8")
@@ -105,25 +105,6 @@ PopupMenuWillBecomeVisibleFP = CFUNCTYPE(None, c_long, JavaObject, JavaObject)
 class APIException(Exception):
     def __init__(self, *args: object) -> None:
         super().__init__(*args)
-
-
-class _ReleaseEvent:
-    def __init__(self, context, vmID, name, event, source) -> None:
-        self._context = context
-        self._vmID = vmID
-        self._name = name
-        self._event = event
-        self._source = source
-        self._start_exec: float = 0
-
-    def __enter__(self):
-        logging.debug(f"Received {self._name} event={self._source}")
-        self._start_exec = time.perf_counter()
-
-    def __exit__(self, type, value, traceback):
-        stop_exec = time.perf_counter()
-        logging.debug(f"Executed {self._name} in {(stop_exec - self._start_exec):.04f}s")
-        self._context._wab.releaseJavaObject(self._vmID, self._event)
 
 
 class JavaAccessBridgeWrapper:
@@ -845,157 +826,157 @@ class JavaAccessBridgeWrapper:
         return runner
 
     def property_change(self, vmID: c_long, event: JavaObject, source: JavaObject, property, old_value, new_value):
-        with _ReleaseEvent(self, vmID, "property_change", event, source):
+        with ReleaseEvent(self, vmID, "property_change", event, source):
             if 'property_change' in self._context_callbacks:
                 for cp in self._context_callbacks['property_change']:
                     cp(source, property, old_value, new_value)
 
     def property_name_change(self, vmID: c_long, event: JavaObject, source: JavaObject, old_value: str, new_value: str):
-        with _ReleaseEvent(self, vmID, "property_name_change", event, source):
+        with ReleaseEvent(self, vmID, "property_name_change", event, source):
             if 'property_name_change' in self._context_callbacks:
                 for cp in self._context_callbacks['property_name_change']:
                     cp(source, old_value, new_value)
 
     def property_description_change(self, vmID: c_long, event: JavaObject, source: JavaObject, old_value: str, new_value: str):
-        with _ReleaseEvent(self, vmID, "property_description_change", event, source):
+        with ReleaseEvent(self, vmID, "property_description_change", event, source):
             if 'property_description_change' in self._context_callbacks:
                 for cp in self._context_callbacks['property_description_change']:
                     cp(source, old_value, new_value)
 
     def property_state_change(self, vmID: c_long, event: JavaObject, source: JavaObject, old_value: str, new_value: str):
-        with _ReleaseEvent(self, vmID, "property_state_change", event, source):
+        with ReleaseEvent(self, vmID, "property_state_change", event, source):
             if 'property_state_change' in self._context_callbacks:
                 for cp in self._context_callbacks['property_state_change']:
                     cp(source, old_value, new_value)
 
     def property_value_change(self, vmID: c_long, event: JavaObject, source: JavaObject, old_value: str, new_value: str):
-        with _ReleaseEvent(self, vmID, "property_value_change", event, source):
+        with ReleaseEvent(self, vmID, "property_value_change", event, source):
             if 'property_value_change' in self._context_callbacks:
                 for cp in self._context_callbacks['property_value_change']:
                     cp(source, old_value, new_value)
 
     def property_selection_change(self, vmID: c_long, event: JavaObject, source: JavaObject):
-        with _ReleaseEvent(self, vmID, "property_selection_change", event, source):
+        with ReleaseEvent(self, vmID, "property_selection_change", event, source):
             if 'property_selection_change' in self._context_callbacks:
                 for cp in self._context_callbacks['property_selection_change']:
                     cp(source)
 
     def property_text_change(self, vmID: c_long, event: JavaObject, source: JavaObject):
-        with _ReleaseEvent(self, vmID, "property_text_change", event, source):
+        with ReleaseEvent(self, vmID, "property_text_change", event, source):
             if 'property_text_change' in self._context_callbacks:
                 for cp in self._context_callbacks['property_text_change']:
                     cp(source)
 
     def property_caret_change(self, vmID: c_long, event: JavaObject, source: JavaObject, old_pos: int, new_pos: int):
-        with _ReleaseEvent(self, vmID, "set_property_caret_change", event, source):
+        with ReleaseEvent(self, vmID, "set_property_caret_change", event, source):
             if 'set_property_caret_change' in self._context_callbacks:
                 for cp in self._context_callbacks['set_property_caret_change']:
                     cp(source, old_pos, new_pos)
 
     def property_visible_data_change(self, vmID: c_long, event: JavaObject, source: JavaObject):
-        with _ReleaseEvent(self, vmID, "property_visible_data_change", event, source):
+        with ReleaseEvent(self, vmID, "property_visible_data_change", event, source):
             if 'property_visible_data_change' in self._context_callbacks:
                 for cp in self._context_callbacks['property_visible_data_change']:
                     cp(source)
 
     def property_child_change(self, vmID: c_long, event: JavaObject, source: JavaObject, old_child: JavaObject, new_child: JavaObject):
-        with _ReleaseEvent(self, vmID, "property_child_change", event, source):
+        with ReleaseEvent(self, vmID, "property_child_change", event, source):
             if 'property_child_change' in self._context_callbacks:
                 for cp in self._context_callbacks['property_child_change']:
                     cp(source, old_child, new_child)
 
     def property_active_descendent_change(self, vmID: c_long, event: JavaObject, source: JavaObject, old_child: JavaObject, new_child: JavaObject):
-        with _ReleaseEvent(self, vmID, "property_active_descendent_change", event, source):
+        with ReleaseEvent(self, vmID, "property_active_descendent_change", event, source):
             if 'property active descendent change' in self._context_callbacks:
                 for cp in self._context_callbacks['property_active_descendent_change']:
                     cp(source, old_child, new_child)
 
     def property_table_model_change(self, vmID: c_long, event: JavaObject, source: JavaObject, old_value: str, new_value: str):
-        with _ReleaseEvent(self, vmID, "property_table_model_change", event, source):
+        with ReleaseEvent(self, vmID, "property_table_model_change", event, source):
             if 'property_table_model_change' in self._context_callbacks:
                 for cp in self._context_callbacks['property_table_model_change']:
                     cp(source, old_value, new_value)
 
     def menu_selected(self, vmID: c_long, event: JavaObject, source: JavaObject):
-        with _ReleaseEvent(self, vmID, "menu_selected", event, source):
+        with ReleaseEvent(self, vmID, "menu_selected", event, source):
             if 'menu_selected' in self._context_callbacks:
                 for cp in self._context_callbacks['menu_selected']:
                     cp(source)
 
     def menu_deselected(self, vmID: c_long, event: JavaObject, source: JavaObject):
-        with _ReleaseEvent(self, vmID, "menu_deselected", event, source):
+        with ReleaseEvent(self, vmID, "menu_deselected", event, source):
             if 'menu_deselected' in self._context_callbacks:
                 for cp in self._context_callbacks['menu_deselected']:
                     cp(source)
 
     def menu_canceled(self, vmID: c_long, event: JavaObject, source: JavaObject):
-        with _ReleaseEvent(self, vmID, "menu_canceled", event, source):
+        with ReleaseEvent(self, vmID, "menu_canceled", event, source):
             if 'menu_canceled' in self._context_callbacks:
                 for cp in self._context_callbacks['menu_canceled']:
                     cp(source)
 
     def focus_gained(self, vmID: c_long, event: JavaObject, source: JavaObject):
-        with _ReleaseEvent(self, vmID, "focus_gained", event, source):
+        with ReleaseEvent(self, vmID, "focus_gained", event, source):
             if 'focus_gained' in self._context_callbacks:
                 for cp in self._context_callbacks['focus_gained']:
                     cp(source)
 
     def focus_lost(self, vmID: c_long, event: JavaObject, source: JavaObject):
-        with _ReleaseEvent(self, vmID, "focus_lost", event, source):
+        with ReleaseEvent(self, vmID, "focus_lost", event, source):
             if 'focus_lost' in self._context_callbacks:
                 for cp in self._context_callbacks['focus_lost']:
                     cp(source)
 
     def caret_update(self, vmID: c_long, event: JavaObject, source: JavaObject):
-        with _ReleaseEvent(self, vmID, "caret_update", event, source):
+        with ReleaseEvent(self, vmID, "caret_update", event, source):
             if 'caret_update' in self._context_callbacks:
                 for cp in self._context_callbacks['caret_update']:
                     cp(source)
 
     def mouse_clicked(self, vmID: c_long, event: JavaObject, source: JavaObject):
-        with _ReleaseEvent(self, vmID, "mouse_clicked", event, source):
+        with ReleaseEvent(self, vmID, "mouse_clicked", event, source):
             if 'mouse_clicked' in self._context_callbacks:
                 for cp in self._context_callbacks['mouse_clicked']:
                     cp(source)
 
     def mouse_entered(self, vmID: c_long, event: JavaObject, source: JavaObject):
-        with _ReleaseEvent(self, vmID, "mouse_entered", event, source):
+        with ReleaseEvent(self, vmID, "mouse_entered", event, source):
             if 'mouse_entered' in self._context_callbacks:
                 for cp in self._context_callbacks['mouse_entered']:
                     cp(source)
 
     def mouse_exited(self, vmID: c_long, event: JavaObject, source: JavaObject):
-        with _ReleaseEvent(self, vmID, "mouse_exited", event, source):
+        with ReleaseEvent(self, vmID, "mouse_exited", event, source):
             if 'mouse_exited' in self._context_callbacks:
                 for cp in self._context_callbacks['mouse_exited']:
                     cp(source)
 
     def mouse_pressed(self, vmID: c_long, event: JavaObject, source: JavaObject):
-        with _ReleaseEvent(self, vmID, "mouse_pressed", event, source):
+        with ReleaseEvent(self, vmID, "mouse_pressed", event, source):
             if 'mouse_pressed' in self._context_callbacks:
                 for cp in self._context_callbacks['mouse_pressed']:
                     cp(source)
 
     def mouse_released(self, vmID: c_long, event: JavaObject, source: JavaObject):
-        with _ReleaseEvent(self, vmID, "mouse_released", event, source):
+        with ReleaseEvent(self, vmID, "mouse_released", event, source):
             if 'mouse_released' in self._context_callbacks:
                 for cp in self._context_callbacks['mouse_released']:
                     cp(source)
 
     def popup_menu_canceled(self, vmID: c_long, event: JavaObject, source: JavaObject):
-        with _ReleaseEvent(self, vmID, "popup_menu_canceled", event, source):
+        with ReleaseEvent(self, vmID, "popup_menu_canceled", event, source):
             if 'popup_menu_canceled' in self._context_callbacks:
                 for cp in self._context_callbacks['popup_menu_canceled']:
                     cp(source)
 
     def popup_menu_will_become_invisible(self, vmID: c_long, event: JavaObject, source: JavaObject):
-        with _ReleaseEvent(self, vmID, "popup_menu_will_become_invisible", event, source):
+        with ReleaseEvent(self, vmID, "popup_menu_will_become_invisible", event, source):
             if 'popup_menu_will_become_invisible' in self._context_callbacks:
                 for cp in self._context_callbacks['popup_menu_will_become_invisible']:
                     cp(source)
 
     def popup_menu_will_become_visible(self, vmID: c_long, event: JavaObject, source: JavaObject):
-        with _ReleaseEvent(self, vmID, "popup_menu_will_become_visible", event, source):
+        with ReleaseEvent(self, vmID, "popup_menu_will_become_visible", event, source):
             if 'popup_menu_will_become_visible' in self._context_callbacks:
                 for cp in self._context_callbacks['popup_menu_will_become_visible']:
                     cp(source)

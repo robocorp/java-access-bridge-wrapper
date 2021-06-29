@@ -1,188 +1,18 @@
 import logging
 import threading
-from typing import Dict, List
+from typing import List
 
 from JABWrapper.jab_wrapper import JavaAccessBridgeWrapper
-from JABWrapper.jab_types import (
-    AccessibleActionsToDo,
-    AccessibleHypertextInfo,
-    AccessibleIcons,
-    AccessibleKeyBindings,
-    AccessibleTableInfo,
-    AccessibleTextAttributesInfo,
-    AccessibleTextItemsInfo,
-    AccessibleTextRectInfo,
-    JavaObject,
-    AccessibleContextInfo,
-    AccessibleTextInfo,
-    AccessibleTextSelectionInfo,
-    MAX_HYPERLINKS
-)
-from JABWrapper.utils import log_exec_time, retry_callback
-
-
-class SearchElement:
-    def __init__(self, name, value) -> None:
-        self.name = name
-        self.value = value
-
-
-class _Parser:
-    def parse() -> None:
-        raise NotImplementedError()
-
-
-class _AccessibleTableParser(_Parser):
-    def __init__(self, aci: AccessibleContextInfo) -> None:
-        self._aci = aci
-        self.table = AccessibleTableInfo()
-
-    def __str__(self) -> str:
-        if self._aci.role == "table":
-            return f" table={self.table.rowCount},{self.table.columnCount}"
-        return ""
-
-    def parse(self, jab_wrapper: JavaAccessBridgeWrapper, context: JavaObject) -> None:
-        if self._aci.role == "table":
-            self.table = jab_wrapper.get_accessible_table_info(context)
-
-
-class _AccessibleKeyBindingsParser(_Parser):
-    def __init__(self, aci: AccessibleContextInfo) -> None:
-        self._aci = aci
-        self.key_bindings = AccessibleKeyBindings()
-
-    def __str__(self) -> str:
-        string = f" kbs={self.key_bindings.keyBindingsCount}"
-        if self.key_bindings.keyBindingsCount > 0:
-            for index in range(self.key_bindings.keyBindingsCount):
-                info = self.key_bindings.AccessibleKeyBindingInfo[index]
-                string += f" c={info.character} m={info.modifiers}"
-        return string
-
-    def parse(self, jab_wrapper: JavaAccessBridgeWrapper, context: JavaObject) -> None:
-        self.key_bindings = jab_wrapper.get_accessible_key_bindings(context)
-
-
-class _AccessibleIconParser(_Parser):
-    def __init__(self, aci: AccessibleContextInfo) -> None:
-        self._aci = aci
-        self.icons = AccessibleIcons()
-
-    def __str__(self) -> str:
-        string = f" icons={self.icons.iconsCount}"
-        if self.icons.iconsCount > 0:
-            for index in range(self.icons.iconsCount):
-                info = self.icons.iconInfo[index]
-                string += f" d={info.description} h={info.height} w={info.width}"
-        return string
-
-    def parse(self, jab_wrapper: JavaAccessBridgeWrapper, context: JavaObject) -> None:
-        self.icons = jab_wrapper.get_accessible_icons(context)
-
-
-class _AccessibleActionsParser(_Parser):
-    def __init__(self, aci: AccessibleContextInfo) -> None:
-        self._aci = aci
-        self.actions = dict()
-
-    def __str__(self) -> str:
-        if not self._aci.accessibleAction:
-            return ""
-        return " actions={}".format(", ".join([action for action in self.actions]))
-
-    def parse(self, jab_wrapper: JavaAccessBridgeWrapper, context: JavaObject) -> None:
-        self.actions.clear()
-        if self._aci.accessibleAction:
-            actions = jab_wrapper.get_accessible_actions(context)
-            for index in range(actions.actionsCount):
-                actionInfo = actions.actionInfo[index]
-                self.actions[actionInfo.name.lower()] = actionInfo
-
-    def do_action(self, jab_wrapper: JavaAccessBridgeWrapper, context: JavaObject, action: str) -> None:
-        if not action.lower() in self.actions:
-            raise NotImplementedError("Does not implement the {} action".format(action))
-        actions = AccessibleActionsToDo(actionsCount=1, actions=(self.actions[action],))
-        jab_wrapper.do_accessible_actions(context, actions)
-
-    def click(self, jab_wrapper: JavaAccessBridgeWrapper, context: JavaObject) -> None:
-        self.do_action(jab_wrapper, context, "click")
-
-    def insert_content(self, jab_wrapper: JavaAccessBridgeWrapper, context: JavaObject, text: str) -> None:
-        jab_wrapper.set_text_contents(context, text)
-
-
-class _AccessibleHypertextParser(_Parser):
-    def __init__(self, aci: AccessibleContextInfo) -> None:
-        self._aci = aci
-        self.info = AccessibleHypertextInfo()
-
-    def __str__(self) -> str:
-        if not self._aci.accessibleText or self.info.linkCount > MAX_HYPERLINKS or self.info.linkCount < 0:
-            return ""
-        txt = f" links={self.info.linkCount}"
-        for i in range(self.info.linkCount):
-            txt += f", link={self.info.links[i].text}"
-        return txt
-
-    def parse(self, jab_wrapper: JavaAccessBridgeWrapper, context: JavaObject) -> None:
-        """
-        TODO: Identify which elements may contain hypertext.
-
-        From java documentation (https://docs.oracle.com/javase/6/docs/api/javax/accessibility/AccessibleHypertext.html),
-        the AccessibleText element may implement the AccessibleHypertext object, but not all AccessibleText elements do.
-
-        The element JEditorPane.JEditorPaneAccessibleHypertextSupport does implement it, but is identifiable from the AccessibleContextInfo?
-        """
-        if self._aci.accessibleText:
-            self.info = jab_wrapper.get_accessible_hypertext(context)
-
-
-class _AccessibleValueParser(_Parser):
-    def __init__(self, aci: AccessibleContextInfo) -> None:
-        self._aci = aci
-        self.value = u''
-        self.min = u''
-        self.max = u''
-
-    def parse(self, jab_wrapper: JavaAccessBridgeWrapper, context: JavaObject) -> None:
-        if self._aci.accessibleValue:
-            self.value = jab_wrapper.get_current_accessible_value_from_context(context)
-            self.min = jab_wrapper.get_minimum_accessible_value_from_context(context)
-            self.max = jab_wrapper.get_maximum_accessible_value_from_context(context)
-
-    def __str__(self) -> str:
-        if not self._aci.accessibleValue:
-            return ""
-        return " v={};".format(self.value)
-
-
-class _AccessibleTextParser(_Parser):
-    def __init__(self, aci: AccessibleContextInfo) -> None:
-        self._aci = aci
-        self.info = AccessibleTextInfo()
-        self.items = AccessibleTextItemsInfo()
-        self.selection = AccessibleTextSelectionInfo()
-        self.attributes_info = AccessibleTextAttributesInfo()
-        self.rect_info = AccessibleTextRectInfo()
-
-    def parse(self, jab_wrapper: JavaAccessBridgeWrapper, context: JavaObject) -> None:
-        if self._aci.accessibleText:
-            self.info = jab_wrapper.get_context_text_info(context, self._aci.x, self._aci.y)
-            self.items = jab_wrapper.get_accessible_text_items(context, 0)
-            self.selection = jab_wrapper.get_accessible_text_selection_info(context)
-            self.attributes_info = jab_wrapper.get_accessible_text_attributes(context, 0)
-            self.rect_info = jab_wrapper.get_accessible_text_rect(context, 0)
-
-    def __str__(self) -> str:
-        if not self._aci.accessibleText:
-            return ""
-        return " tc={} w={} s={} st={};".format(
-            self.info.charCount,
-            self.items.word,
-            self.items.sentence,
-            self.selection.selectedText
-        )
+from JABWrapper.jab_types import JavaObject, AccessibleContextInfo
+from JABWrapper.utils import log_exec_time, retry_callback, SearchElement
+from JABWrapper.parsers.parser_if import Parser
+from JABWrapper.parsers.text_parser import AccessibleTextParser
+from JABWrapper.parsers.value_parser import AccessibleValueParser
+from JABWrapper.parsers.actions_parser import AccessibleActionsParser
+from JABWrapper.parsers.icon_parser import AccessibleIconParser
+from JABWrapper.parsers.keybind_parser import AccessibleKeyBindingsParser
+from JABWrapper.parsers.hypertext_parser import AccessibleHypertextParser
+from JABWrapper.parsers.table_parser import AccessibleTableParser
 
 
 class ContextNode:
@@ -199,43 +29,75 @@ class ContextNode:
 
     def _parse_context(self) -> None:
         logging.debug(f"Parsing element={self.context}")
-        self.aci: AccessibleContextInfo = self._jab_wrapper.get_context_info(self.context)
-        logging.debug(f"Parsed element role={self.aci.role}, name={self.aci.name}")
+        self._aci: AccessibleContextInfo = self._jab_wrapper.get_context_info(self.context)
         self.virtual_accessible_name = self._jab_wrapper.get_virtual_accessible_name(self.context)
-        self.atp = _AccessibleTextParser(self.aci)
-        self.avp = _AccessibleValueParser(self.aci)
-        self._aap = _AccessibleActionsParser(self.aci)
-        self.akbp = _AccessibleKeyBindingsParser(self.aci)
-        self.htp = _AccessibleHypertextParser(self.aci)
-        self.tp = _AccessibleTableParser(self.aci)
-        self.ip = _AccessibleIconParser(self.aci)
-        self._parsers: List[_Parser] = [self.atp, self.avp, self._aap, self.akbp, self.htp, self.tp, self.ip]
+        logging.debug(f"Parsed element role={self._aci.role}, name={self._aci.name}, VAN={self.virtual_accessible_name}")
+        self.text = AccessibleTextParser(self._aci)
+        self.value = AccessibleValueParser(self._aci)
+        self.actions = AccessibleActionsParser(self._aci)
+        self.keybinds = AccessibleKeyBindingsParser(self._aci)
+        self.hypertext = AccessibleHypertextParser(self._aci)
+        self.table = AccessibleTableParser(self._aci)
+        self.icons = AccessibleIconParser(self._aci)
+        self._parsers: List[Parser] = [self.text, self.value, self.actions, self.keybinds, self.hypertext, self.table, self.icons]
         [parser.parse(self._jab_wrapper, self.context) for parser in self._parsers]
 
+    @property
+    def context_info(self) -> AccessibleContextInfo:
+        """
+        Property:
+            The AccessibleContextInfo object. For example:
+
+            {
+                "name": "Button",
+                "description": "Click button",
+                "role": "push button",
+                "role_en_US": "push button",
+                "states": "enabled,clicked",
+                "states_en_US": "enabled,clicked",
+                "indexInParent": 1,
+                "childrenCount": 10,
+                "x": 150,
+                "y": 150,
+                "width": 800,
+                "height": 600,
+                "accessibleComponent": True,
+                "accessibleAction": True,
+                "accessibleSelection": False,
+                "accessibleText": False,
+                "accessibleValue", False
+            }
+        """
+        return self._aci
+
+    @context_info.setter
+    def context_info(self, context_info: AccessibleContextInfo) -> None:
+        self._aci = context_info
+
     def _parse_children(self) -> None:
-        for i in range(0, self.aci.childrenCount):
+        for i in range(0, self._aci.childrenCount):
             child_context = self._jab_wrapper.get_child_context(self.context, i)
             child_node = ContextNode(self._jab_wrapper, child_context, self._lock, self.ancestry + 1)
             self.children.append(child_node)
 
     def __repr__(self) -> str:
         """
-        Returns a string that represents the object tree with detailed Node values
+        Returns:
+            A string that represents the object tree with detailed Node values.
         """
-        string = "{}C={}, Role={}, Name={}, VAN={}, Desc={}, St={}, Sts={}, at x={}:y={} w={} h={}; cc={};".format(
+        string = "{}Role={}, Name={}, VAN={}, Desc={}, St={}, Sts={}, at x={}:y={} w={} h={}; cc={};".format(
             '  ' * self.ancestry,
-            self.context,
-            repr(self.aci.role),
-            repr(self.aci.name),
+            repr(self.context_info.role),
+            repr(self.context_info.name),
             repr(self.virtual_accessible_name),
-            repr(self.aci.description),
+            repr(self.context_info.description),
             repr(self.state),
-            repr(self.aci.states),
-            self.aci.x,
-            self.aci.y,
-            self.aci.width,
-            self.aci.height,
-            self.aci.childrenCount
+            repr(self.context_info.states),
+            self.context_info.x,
+            self.context_info.y,
+            self.context_info.width,
+            self.context_info.height,
+            self.context_info.childrenCount
         )
         for parser in self._parsers:
             string += f"{parser}"
@@ -245,20 +107,21 @@ class ContextNode:
 
     def __str__(self) -> str:
         """
-        Returns a string of Node values
+        Returns:
+            A string of Node values.
         """
         string = "Role={}, Name={}, VAN={}, Desc={}, St={}, Sts={}, at x={}:y={} w={} h={}; cc={};".format(
-            repr(self.aci.role),
-            repr(self.aci.name),
+            repr(self.context_info.role),
+            repr(self.context_info.name),
             repr(self.virtual_accessible_name),
-            repr(self.aci.description),
+            repr(self.context_info.description),
             repr(self.state),
-            repr(self.aci.states),
-            self.aci.x,
-            self.aci.y,
-            self.aci.width,
-            self.aci.height,
-            self.aci.childrenCount
+            repr(self.context_info.states),
+            self.context_info.x,
+            self.context_info.y,
+            self.context_info.width,
+            self.context_info.height,
+            self.context_info.childrenCount
         )
         for parser in self._parsers:
             string += "{}".format(parser)
@@ -278,27 +141,21 @@ class ContextNode:
         self._parse_context()
         self._parse_children()
 
-    def _van_match(self, search_elements: List[SearchElement]) -> bool:
-        for search_element in search_elements:
-            if search_element.name == "VAN":
-                if search_element.value != self.virtual_accessible_name:
-                    return False
-        return True
-
     def get_by_attrs(self, search_elements: List[SearchElement]) -> List:
         """
         Get element with given seach attributes.
 
-        The SearchElement object takes a name of the field and the field value:
+        The SearchElement object takes a name of the field and the field value. For example:
+
         element = context_tree.get_by_attrs([SearchElement("role", "text")])
 
-        Returns an array of matching elements.
+        Returns:
+            An array of matching elements.
         """
         with self._lock:
             elements = list()
-            van_match = self._van_match(search_elements)
-            found = all([getattr(self.aci, search_element.name).startswith(search_element.value) for search_element in search_elements])
-            if found and van_match:
+            found = all([getattr(self._aci, search_element.name).startswith(search_element.value) for search_element in search_elements])
+            if found:
                 elements.append(self)
             for child in self.children:
                 child_elements = child.get_by_attrs(search_elements)
@@ -312,35 +169,35 @@ class ContextNode:
         with self._lock:
             self._jab_wrapper.request_focus(self.context)
 
-    def get_actions(self) -> Dict:
+    def get_actions(self) -> List[str]:
         """
         Get all actions available for element
         """
         with self._lock:
-            return self._aap.actions
+            return self.actions.list_actions
 
     def do_action(self, action: str) -> None:
         """
         Do any action found with the get_actions interface
 
-        Will raise APIException is action is not available
+        Will raise APIException if action is not available
         """
         with self._lock:
-            self._aap.do_action(self._jab_wrapper, self.context, action)
+            self.actions.do_action(self._jab_wrapper, self.context, action)
 
     def click(self) -> None:
         """
         Do click action for element
         """
         with self._lock:
-            self._aap.click(self._jab_wrapper, self.context)
+            self.actions.click(self._jab_wrapper, self.context)
 
     def insert_text(self, text: str) -> None:
         """
         Do insert content action for element
         """
         with self._lock:
-            self._aap.insert_content(self._jab_wrapper, self.context, text)
+            self.actions.insert_content(self._jab_wrapper, self.context, text)
 
 
 class ContextTree:
@@ -362,7 +219,7 @@ class ContextTree:
         with self._lock:
             node: ContextNode = self.root._get_node_by_context(source)
             if node:
-                setattr(node.aci, property, new_value)
+                setattr(node.context_info, property, new_value)
                 logging.debug(f"Property={property} changed from={old_value} to={new_value} for node={node}")
 
     @retry_callback
@@ -370,7 +227,7 @@ class ContextTree:
         with self._lock:
             node: ContextNode = self.root._get_node_by_context(source)
             if node:
-                setattr(node.aci, "name", new_value)
+                setattr(node.context_info, "name", new_value)
                 logging.debug(f"Name changed from={old_value} to={new_value} for node={node}")
 
     @retry_callback
@@ -378,7 +235,7 @@ class ContextTree:
         with self._lock:
             node: ContextNode = self.root._get_node_by_context(source)
             if node:
-                setattr(node.aci, "description", new_value)
+                setattr(node.context_info, "description", new_value)
                 logging.debug(f"Description changed from={old_value} to={new_value} for node={node}")
 
     @retry_callback
@@ -394,7 +251,7 @@ class ContextTree:
         with self._lock:
             node: ContextNode = self.root._get_node_by_context(source)
             if node:
-                node.avp.value = new_value
+                node.value.value = new_value
                 logging.debug(f"Value changed from={old_value} to={new_value} for node={node}")
 
     @retry_callback

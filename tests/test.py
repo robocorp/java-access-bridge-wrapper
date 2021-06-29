@@ -64,7 +64,7 @@ def write_to_file(name: str, data: str, mode='w') -> None:
 
 def wait_until_text_contains(element: ContextNode, text: str, retries=10):
     for i in range(retries):
-        if text in element.atp.items.sentence:
+        if text in element.text.items.sentence:
             return
         time.sleep(0.05)
     else:
@@ -74,7 +74,7 @@ def wait_until_text_contains(element: ContextNode, text: str, retries=10):
 
 def wait_until_text_cleared(element: ContextNode, retries=10):
     for i in range(retries):
-        if element.atp.items.sentence == '':
+        if element.text.items.sentence == '':
             return
         time.sleep(0.05)
     else:
