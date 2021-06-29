@@ -309,13 +309,27 @@ class JavaAccessBridgeWrapper:
         self._wab.getMinimumAccessibleValueFromContext.restype = wintypes.BOOL
 
         # AccessibleSelection
-        # TODO: addAccessibleSelectionFromContext
-        # TODO: clearAccessibleSelectionFromContext
-        # TODO: getAccessibleSelectionFromContext
-        # TODO: getAccessibleSelectionCountFromContext
-        # TODO: isAccessibleChildSelectedFromContext
-        # TODO: removeAccessibleSelectionFromContext
-        # TODO: selectAllAccessibleSelectionFromContext
+        # void addAccessibleSelectionFromContext(long vmID, AccessibleContext context, int index)
+        self._wab.addAccessibleSelectionFromContext.argtypes = [c_long, JavaObject, c_int]
+        self._wab.addAccessibleSelectionFromContext.restype = None
+        # void clearAccessibleSelectionFromContext(long vmID, AccessibleContext context)
+        self._wab.clearAccessibleSelectionFromContext.argtypes = [c_long, JavaObject]
+        self._wab.clearAccessibleSelectionFromContext.restype = None
+        # JavaObject getAccessibleSelectionFromContext(long vmID, AccessibleContext context, int index)
+        self._wab.getAccessibleSelectionFromContext.argtypes = [c_long, JavaObject, c_int]
+        self._wab.getAccessibleSelectionFromContext.restype = JavaObject
+        # int getAccessibleSelectionCountFromContext(long vmID, AccessibleContext context)
+        self._wab.getAccessibleSelectionCountFromContext.argtypes = [c_long, JavaObject]
+        self._wab.getAccessibleSelectionCountFromContext.restype = c_int
+        # BOOL isAccessibleChildSelectedFromContext(long vmID, AccessibleContext context, int index)
+        self._wab.isAccessibleChildSelectedFromContext.argtypes = [c_long, JavaObject, c_int]
+        self._wab.isAccessibleChildSelectedFromContext.restype = wintypes.BOOL
+        # void removeAccessibleSelectionFromContext(long vmID, AccessibleContext context, int index)
+        self._wab.removeAccessibleSelectionFromContext.argtypes = [c_long, JavaObject, c_int]
+        self._wab.removeAccessibleSelectionFromContext.restype = None
+        # void selectAllAccessibleSelectionFromContext(long vmID, AccessibleContext context)
+        self._wab.selectAllAccessibleSelectionFromContext.argtypes = [c_long, JavaObject]
+        self._wab.selectAllAccessibleSelectionFromContext.restype = None
 
         # Utility
         # BOOL setTextContents(long vmID, AccessibleContext context, str text)
@@ -740,6 +754,27 @@ class JavaAccessBridgeWrapper:
         if not ok:
             raise APIException("Failed to get minimum accessible value from context")
         return buf.value
+
+    def add_accessible_selection_from_context(self, context: JavaObject, index: int) -> None:
+        self._wab.addAccessibleSelectionFromContext(self._vmID, context, index)
+
+    def clear_accessible_selection_from_context(self, context: JavaObject) -> None:
+        self._wab.clearAccessibleSelectionFromContext(self._vmID, context)
+
+    def get_accessible_selection_from_context(self, context: JavaObject, index: int) -> JavaObject:
+        return self._wab.getAccessibleSelectionFromContext(self._vmID, context, index)
+
+    def get_accessible_selection_count_from_context(self, context: JavaObject) -> int:
+        return self._wab.getAccessibleSelectionCountFromContext(self._vmID, context)
+
+    def is_accessible_child_selected_from_context(self, context: JavaObject, index: JavaObject) -> bool:
+        return bool(self._wab.isAccessibleChildSelectedFromContext(self._vmID, context, index))
+
+    def remove_accessible_selection_from_context(self, context: JavaObject, index: int) -> None:
+        self._wab.removeAccessibleSelectionFromContext(self._vmID, context, index)
+
+    def select_all_accessible_selection_from_context(self, context: JavaObject) -> None:
+        self._wab.selectAllAccessibleSelectionFromContext(self._vmID, context)
 
     def get_accessible_actions(self, context: JavaObject) -> AccessibleActions:
         actions = AccessibleActions()

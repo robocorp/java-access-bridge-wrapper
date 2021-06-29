@@ -154,24 +154,36 @@ def main():
         # Type text into text field
         text = "Hello World"
         logging.info("Typing text into text field")
-        text_field = context_info_tree.get_by_attrs([SearchElement("role", "text")])[0]
-        logging.debug("Found element by role (text): {}".format(text_field))
-        text_field.insert_text(text)
-        wait_until_text_contains(text_field, text)
+        text_area = context_info_tree.get_by_attrs([SearchElement("role", "text")])[0]
+        logging.debug("Found element by role (text): {}".format(text_area))
+        text_area.insert_text(text)
+        wait_until_text_contains(text_area, text)
 
         # Click the send button
         logging.info("Clicking the send button")
         send_button = context_info_tree.get_by_attrs([SearchElement("role", "push button"), SearchElement("name", "Send")])[0]
         logging.debug("Found element by role (push button) and name (Send): {}".format(send_button))
         send_button.click()
-        wait_until_text_contains(text_field, "default text")
+        wait_until_text_contains(text_area, "default text")
+
+        # Select combobox
+        logging.info("Selecting text area")
+        combo_box_menu = context_info_tree.get_by_attrs([SearchElement("role", "combo box")])[0]
+        sel_count = jab_wrapper.get_accessible_selection_count_from_context(combo_box_menu.context)
+        assert sel_count == 1
+        jab_wrapper.add_accessible_selection_from_context(combo_box_menu.context, 1)
+        should_be_selected = jab_wrapper.is_accessible_child_selected_from_context(combo_box_menu.context, 1)
+        should_not_be_selected = jab_wrapper.is_accessible_child_selected_from_context(combo_box_menu.context, 0)
+        assert should_be_selected
+        assert not should_not_be_selected
+        jab_wrapper.clear_accessible_selection_from_context(combo_box_menu.context)
 
         # Click the clear button
         logging.info("Clicking the clear button")
         clear_button = context_info_tree.get_by_attrs([SearchElement("role", "push button"), SearchElement("name", "Clear")])[0]
         logging.debug("Found element by role (push button) and name (Clear): {}".format(clear_button))
         clear_button.click()
-        wait_until_text_cleared(text_field)
+        wait_until_text_cleared(text_area)
 
         # Open Menu item FILE
         menu_clicked = MenuClicked()

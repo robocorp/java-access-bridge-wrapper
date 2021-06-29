@@ -8,12 +8,13 @@ import java.awt.event.*;
 import java.time.format.DateTimeFormatter;
 import java.time.LocalDateTime;
 
-class BasicSwing extends JFrame implements WindowListener, ActionListener {
+class BasicSwing extends JFrame implements WindowListener, ActionListener, ItemListener {
     DateTimeFormatter dtf = DateTimeFormatter.ofPattern("HH:mm:ss");
     TextField text = new TextField(20);
     String defaultText = "default text";
     JMenuBar mb;
     JTextArea ta;
+    JComboBox comboBox;
 
     public static void main(String[] args) {
         BasicSwing myWindow = new BasicSwing("Chat Frame");
@@ -55,15 +56,21 @@ class BasicSwing extends JFrame implements WindowListener, ActionListener {
         JTable table = new JTable(data, columnNames);
         table.setFillsViewportHeight(true);
 
-        JPanel taPanel = new JPanel();
-        taPanel.setLayout(new GridLayout(2, 1));
+        String comboBoxOptions[] = { "Hello", "World" };
+        this.comboBox = new JComboBox(comboBoxOptions);
+        this.comboBox.addItemListener(this);
 
-        taPanel.add(ta);
-        taPanel.add(taButtonPanel);
+        JPanel leftPanel = new JPanel(new GridLayout(2, 1));
+        leftPanel.add(table);
+        leftPanel.add(this.comboBox);
+
+        JPanel rightPanel = new JPanel(new GridLayout(2, 1));
+        rightPanel.add(ta);
+        rightPanel.add(taButtonPanel);
 
         JPanel contextPanel = new JPanel(new GridLayout(1, 2));
-        contextPanel.add(table);
-        contextPanel.add(taPanel);
+        contextPanel.add(leftPanel);
+        contextPanel.add(rightPanel);
 
         this.getContentPane().add(BorderLayout.NORTH, mb);
         this.getContentPane().add(BorderLayout.CENTER, contextPanel);
@@ -149,5 +156,13 @@ class BasicSwing extends JFrame implements WindowListener, ActionListener {
 
     @Override
     public void windowDeactivated(WindowEvent arg0) {
+    }
+
+    public void itemStateChanged(ItemEvent e)
+    {
+        // if the state combobox is changed
+        if (e.getSource() == this.comboBox) {
+            ta.append(this.comboBox.getSelectedItem() + "\n");
+        }
     }
 }
