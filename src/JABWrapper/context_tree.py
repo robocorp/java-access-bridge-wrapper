@@ -13,6 +13,7 @@ from JABWrapper.parsers.icon_parser import AccessibleIconParser
 from JABWrapper.parsers.keybind_parser import AccessibleKeyBindingsParser
 from JABWrapper.parsers.hypertext_parser import AccessibleHypertextParser
 from JABWrapper.parsers.table_parser import AccessibleTableParser
+from JABWrapper.parsers.selection_parser import AccessibleSelectionParser
 
 
 class ContextNode:
@@ -39,7 +40,8 @@ class ContextNode:
         self.hypertext = AccessibleHypertextParser(self._aci)
         self.table = AccessibleTableParser(self._aci)
         self.icons = AccessibleIconParser(self._aci)
-        self._parsers: List[Parser] = [self.text, self.value, self.actions, self.keybinds, self.hypertext, self.table, self.icons]
+        self.selections = AccessibleSelectionParser(self._aci)
+        self._parsers: List[Parser] = [self.text, self.value, self.actions, self.keybinds, self.hypertext, self.table, self.icons, self.selections]
         [parser.parse(self._jab_wrapper, self.context) for parser in self._parsers]
 
     @property
