@@ -29,7 +29,7 @@ class AccessibleIconParser(Parser):
                 "AccessibleIcons": 1,
                 "iconInfo": [
                     {
-                        "description": "random",
+                        "description": "element_icon.png",
                         "height": 10,
                         "width": 10
                     }

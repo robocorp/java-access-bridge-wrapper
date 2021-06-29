@@ -135,22 +135,6 @@ def main():
         logging.debug("Found element by role (frame): {}".format(root_pane))
         root_pane.request_focus()
 
-        # Get table data
-        # logging.info("Getting table info")
-        # table_field = context_info_tree.get_by_attrs([SearchElement("role", "table")])[0]
-        # cell_info = jab_wrapper.get_accessible_table_cell_info(table_field.tp.table.accessibleTable, 1, 1)
-        # row_header = jab_wrapper.get_accessible_table_row_header(table_field.context)
-        # column_header = jab_wrapper.get_accessible_table_column_header(table_field.context)
-        # row_context = jab_wrapper.get_accessible_table_row_description(table_field.context, 0)
-        # column_context = jab_wrapper.get_accessible_table_column_description(table_field.context, 1)
-        # row_sel_count = jab_wrapper.get_accessible_table_row_selection_count(table_field.tp.table.accessibleTable)
-        # is_row_selected = jab_wrapper.is_accessible_table_row_selected(table_field.tp.table.accessibleTable, 0)
-        # column_sel_count = jab_wrapper.get_accessible_table_column_selection_count(table_field.tp.table.accessibleTable)
-        # is_column_selected = jab_wrapper.is_accessible_table_column_selected(table_field.tp.table.accessibleTable, 1)
-        # row = jab_wrapper.get_accessible_table_row(table_field.tp.table.accessibleTable, 2)
-        # column = jab_wrapper.get_accessible_table_column(table_field.tp.table.accessibleTable, 2)
-        # index = jab_wrapper.get_accessible_table_index(table_field.tp.table.accessibleTable, 2, 2)
-
         # Type text into text field
         text = "Hello World"
         logging.info("Typing text into text field")
