@@ -108,8 +108,11 @@ class APIException(Exception):
 
 
 class JavaAccessBridgeWrapper:
-    def __init__(self) -> None:
+    def __init__(self, ignore_callbacks=False) -> None:
         logging.debug("Loading WindowsAccessBridge")
+
+        self._ignore_callbacks = ignore_callbacks
+
         if "RC_JAVA_ACCESS_BRIDGE_DLL" not in os.environ:
             raise OSError("Environment variable: RC_JAVA_ACCESS_BRIDGE_DLL not found")
         if not os.path.isfile(os.path.normpath(os.environ['RC_JAVA_ACCESS_BRIDGE_DLL'])):
@@ -117,8 +120,9 @@ class JavaAccessBridgeWrapper:
         self._wab: cdll = cdll.LoadLibrary(os.path.normpath(os.environ['RC_JAVA_ACCESS_BRIDGE_DLL']))
         logging.debug("WindowsAccessBridge loaded succesfully")
         self._define_functions()
-        self._define_callbacks()
-        self._set_callbacks()
+        if not self._ignore_callbacks:
+            self._define_callbacks()
+            self._set_callbacks()
         self._wab.Windows_run()
 
         self._hwnd: wintypes.HWND = None
@@ -132,7 +136,8 @@ class JavaAccessBridgeWrapper:
 
     def shutdown(self):
         self._context_callbacks = dict()
-        self._remove_callbacks()
+        if not self._ignore_callbacks:
+            self._remove_callbacks()
 
     def _define_functions(self) -> None:
         # void Windows_run()
