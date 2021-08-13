@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 import logging
 
 from ctypes import (
@@ -495,7 +496,8 @@ class JavaAccessBridgeWrapper:
             return True
         if isJava:
             logging.debug(f"found java window={title}")
-            if self._current_window == title:
+            regex = re.compile(self._current_window)
+            if re.match(regex, title):
                 logging.debug(f"found matching window={title}")
                 self._hwnd = hwnd
                 self._vmID = c_long()
