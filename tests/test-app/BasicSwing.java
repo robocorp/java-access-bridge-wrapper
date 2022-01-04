@@ -3,6 +3,8 @@
 // even if you are working with just swings.
 import javax.accessibility.Accessible;
 import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+
 import java.awt.*;
 import java.awt.event.*;
 import java.time.format.DateTimeFormatter;
@@ -47,13 +49,34 @@ class BasicSwing extends JFrame implements WindowListener, ActionListener, ItemL
         taButtonPanel.add(text);
         taButtonPanel.add(clear);
 
-        String[] columnNames = {"Column1", "Column2"};
+        String[] columnNames = {"Column1", "Column2", "Checkbox"};
         Object[][] data = {
-            {"Cell11", "Cell12"},
-            {"Cell21", "Cell22"},
-            {"Cell31", "Cell32"}
+            {"Cell11", "Cell12", true},
+            {"Cell21", "Cell22", false},
+            {"Cell31", "Cell32", false}
         };
-        JTable table = new JTable(data, columnNames);
+        DefaultTableModel model = new DefaultTableModel(data, columnNames);
+        JTable table = new JTable(model) {
+            private static final long serialVersionUID = 1L;
+
+            /*@Override
+            public Class getColumnClass(int column) {
+            return getValueAt(0, column).getClass();
+            }*/
+            @Override
+            public Class getColumnClass(int column) {
+                switch (column) {
+                    case 0:
+                        return String.class;
+                    case 1:
+                        return String.class;
+                    case 2:
+                        return Boolean.class;
+                    default:
+                        return Boolean.class;
+                }
+            }
+        };
         table.setFillsViewportHeight(true);
 
         String comboBoxOptions[] = { "Hello", "World" };
