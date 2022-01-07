@@ -90,7 +90,7 @@ class ContextNode:
         Returns:
             A string that represents the object tree with detailed Node values.
         """
-        string = "{}Role={}, Name={}, VAN={}, Desc={}, St={}, Sts={}, at x={}:y={} w={} h={}; cc={}; vcc={}".format(
+        string = "{}Role={}, Name={}, VAN={}, Desc={}, St={}, Sts={}, at x={}:y={} w={} h={}; indexInParent={}; cc={}; vcc={}".format(
             '  ' * self.ancestry,
             repr(self.context_info.role),
             repr(self.context_info.name),
@@ -102,6 +102,7 @@ class ContextNode:
             self.context_info.y,
             self.context_info.width,
             self.context_info.height,
+            self.context_info.indexInParent,
             self.context_info.childrenCount,
             self.visible_children_count
         )
@@ -116,7 +117,7 @@ class ContextNode:
         Returns:
             A string of Node values.
         """
-        string = "Role={}, Name={}, VAN={}, Desc={}, St={}, Sts={}, at x={}:y={} w={} h={}; cc={}; vcc={}".format(
+        string = "Role={}, Name={}, VAN={}, Desc={}, St={}, Sts={}, at x={}:y={} w={} h={}; indexInParent={}; cc={}; vcc={}".format(
             repr(self.context_info.role),
             repr(self.context_info.name),
             repr(self.virtual_accessible_name),
@@ -127,6 +128,7 @@ class ContextNode:
             self.context_info.y,
             self.context_info.width,
             self.context_info.height,
+            self.context_info.indexInParent,
             self.context_info.childrenCount,
             self.visible_children_count
         )
