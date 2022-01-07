@@ -1137,7 +1137,7 @@ class JavaAccessBridgeWrapper:
         info = AccessibleTextItemsInfo()
         ok = self._wab.getAccessibleTextItems(self._vmID, context, byref(info), index)
         if not ok:
-            raise APIException("Failed to get accessible text  context")
+            raise APIException("Failed to get accessible text context")
         return info
 
     def get_accessible_text_selection_info(self, context: JavaObject) -> AccessibleTextSelectionInfo:

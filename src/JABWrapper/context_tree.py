@@ -85,17 +85,6 @@ class ContextNode:
             child_node = ContextNode(self._jab_wrapper, child_context, self._lock, self.ancestry + 1)
             self.children.append(child_node)
 
-    def get_visible_children(self) -> None:
-        visible_children = []
-        logging.debug(f"Expected visible children count={self.visible_children_count}")
-        if self.visible_children_count > 0:
-            found_visible_children = self._jab_wrapper.get_visible_children(self.context, 0)
-            logging.debug(f"Found visible children count={self.visible_children_count}")
-            for i in range(0, found_visible_children.returnedChildrenCount):
-                visible_child = ContextNode(self._jab_wrapper, found_visible_children.children[i], self._lock, self.ancestry + 1, False)
-                visible_children.append(visible_child)
-        return visible_children
-
     def __repr__(self) -> str:
         """
         Returns:
@@ -216,6 +205,28 @@ class ContextNode:
         """
         with self._lock:
             self.actions.insert_content(self._jab_wrapper, self.context, text)
+
+    def get_visible_children(self) -> List:
+        """
+        Get visible children nodes for the ContextNode.
+
+        Will only get the immediate children for this node, not the whole ContextTree.
+
+        Returns:
+            List of ContextNode objects
+
+        Raises:
+            APIException: Failed to get visible children info
+        """
+        visible_children = []
+        logging.debug(f"Expected visible children count={self.visible_children_count}")
+        if self.visible_children_count > 0:
+            found_visible_children = self._jab_wrapper.get_visible_children(self.context, 0)
+            logging.debug(f"Found visible children count={self.visible_children_count}")
+            for i in range(0, found_visible_children.returnedChildrenCount):
+                visible_child = ContextNode(self._jab_wrapper, found_visible_children.children[i], self._lock, self.ancestry + 1, False)
+                visible_children.append(visible_child)
+        return visible_children
 
 
 class ContextTree:
