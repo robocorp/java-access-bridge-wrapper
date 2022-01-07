@@ -145,7 +145,8 @@ def main():
 
         # Click the send button
         logging.info("Clicking the send button")
-        send_button = context_info_tree.get_by_attrs([SearchElement("role", "push button"), SearchElement("name", "Send")])[0]
+        send_button = context_info_tree.get_by_attrs([SearchElement("role", "push button"), SearchElement("name", "Send"),
+                                                      SearchElement("indexInParent", 0)])[0]
         logging.debug("Found element by role (push button) and name (Send): {}".format(send_button))
         send_button.click()
         wait_until_text_contains(text_area, "default text")

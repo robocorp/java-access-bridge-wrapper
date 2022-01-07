@@ -148,6 +148,17 @@ class ContextNode:
         self._parse_context()
         self._parse_children()
 
+    def _match_attrs(self, search_elements: List[SearchElement]) -> bool:
+        for search_element in search_elements:
+            attr = getattr(self._aci, search_element.name)
+            if isinstance(attr, str):
+                if not attr.startswith(search_element.value):
+                    return False
+            else:
+                if not attr == search_element.value:
+                    return False
+        return True
+
     def get_by_attrs(self, search_elements: List[SearchElement]) -> List:
         """
         Get element with given seach attributes.
@@ -161,7 +172,7 @@ class ContextNode:
         """
         with self._lock:
             elements = list()
-            found = all([getattr(self._aci, search_element.name).startswith(search_element.value) for search_element in search_elements])
+            found = self._match_attrs(search_elements)
             if found:
                 elements.append(self)
             for child in self.children:
