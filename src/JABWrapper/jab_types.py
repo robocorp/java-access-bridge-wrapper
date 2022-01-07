@@ -25,6 +25,8 @@ MAX_KEY_BINDINGS = 10
 
 MAX_ICON_INFO = 10
 
+MAX_VISIBLE_CHILDREN_COUNT = 256
+
 
 class JavaObject(c_int64):
     pass
@@ -215,7 +217,7 @@ class AccessibleTableInfo(Structure):
 
 
 class AccessibleTableCellInfo(Structure):
-    _fields = [
+    _fields_ = [
         ("accessibleContext", JavaObject),
         ("index", c_int),
         ("row", c_int),
@@ -223,4 +225,11 @@ class AccessibleTableCellInfo(Structure):
         ("rowExtent", c_int),
         ("columnExtent", c_int),
         ("isSelected", c_bool)
+    ]
+
+
+class VisibleChildrenInfo(Structure):
+    _fields_ = [
+        ('returnedChildrenCount', c_int),
+        ('children', JavaObject * MAX_VISIBLE_CHILDREN_COUNT)
     ]

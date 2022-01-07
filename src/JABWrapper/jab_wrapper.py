@@ -41,6 +41,7 @@ from JABWrapper.jab_types import (
     AccessibleContextInfo,
     AccessibleTextInfo,
     AccessibleTextSelectionInfo,
+    VisibleChildrenInfo,
     MAX_STRING_SIZE,
     SHORT_STRING_SIZE
 )
@@ -48,11 +49,11 @@ from JABWrapper.utils import ReleaseEvent
 
 
 logging_file_handler = logging.FileHandler("jab_wrapper.log", "w", "utf-8")
-logging_file_handler.setFormatter(logging.Formatter("%(asctime)s [%(threadName)s] [%(levelname)s] %(message)s"))
+logging_file_handler.setFormatter(logging.Formatter("%(asctime)s [%(threadName)s] {%(filename)s:%(lineno)d} [%(levelname)s] %(message)s"))
 logging_file_handler.setLevel(logging.DEBUG)
 
 logging_stream_handler = logging.StreamHandler(sys.stdout)
-logging_stream_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+logging_stream_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] {%(filename)s:%(lineno)d} %(message)s"))
 logging_stream_handler.setLevel(logging.INFO)
 
 logging.basicConfig(
@@ -338,8 +339,12 @@ class JavaAccessBridgeWrapper:
         self._wab.requestFocus.restypes = wintypes.BOOL
         # TODO: selectTextRange
         # TODO: getTextAttributesInRange
-        # TODO: getVisibleChildrenCount
-        # TODO: getVisibleChildren
+        # int getVisibleChildrenCount(long vmID, AccessibleContext context)
+        self._wab.getVisibleChildrenCount.argtypes = [c_long, JavaObject]
+        self._wab.getVisibleChildrenCount.restype = c_int
+        # BOOL getVisibleChildren(long vmID, AccessibleContext context, int startIndex, VisibleChildrenInfo *visibleChilderInfo)
+        self._wab.getVisibleChildren.argtypes = [c_long, JavaObject, c_int, POINTER(VisibleChildrenInfo)]
+        self._wab.getVisibleChildren.restype = wintypes.BOOL
         # TODO: setCaretPosition
         # TODO: getCaretLocation
         # TODO: getEventsWaitingFP
@@ -1593,6 +1598,16 @@ class JavaAccessBridgeWrapper:
         if not ok:
             raise APIException("Failed to get virtual accessible name")
         return buf.value
+
+    def get_visible_children_count(self, context: JavaObject) -> int:
+        return self._wab.getVisibleChildrenCount(self._vmID, context)
+
+    def get_visible_children(self, context: JavaObject, start_index: int) -> VisibleChildrenInfo:
+        visible_children = VisibleChildrenInfo()
+        ok = self._wab.getVisibleChildren(self._vmID, context, start_index, byref(visible_children))
+        if not ok:
+            raise APIException('Failed to get visible children info')
+        return visible_children
 
     def register_callback(self, name: str, callback: Callable[[JavaObject], None]) -> None:
         """

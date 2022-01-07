@@ -17,21 +17,24 @@ from JABWrapper.parsers.selection_parser import AccessibleSelectionParser
 
 
 class ContextNode:
-    def __init__(self, jab_wrapper: JavaAccessBridgeWrapper, context: JavaObject, lock, ancestry: int = 0) -> None:
+    def __init__(self, jab_wrapper: JavaAccessBridgeWrapper, context: JavaObject, lock, ancestry: int = 0, parse_children=True) -> None:
         self._jab_wrapper = jab_wrapper
         self._lock = lock
         self.ancestry = ancestry
         self.context: JavaObject = context
         self.state = None
+        self.visible_children_count = 0
         self.virtual_accessible_name = None
         self._parse_context()
         self.children: list[ContextNode] = []
-        self._parse_children()
+        if parse_children:
+            self._parse_children()
 
     def _parse_context(self) -> None:
         logging.debug(f"Parsing element={self.context}")
         self._aci: AccessibleContextInfo = self._jab_wrapper.get_context_info(self.context)
         self.virtual_accessible_name = self._jab_wrapper.get_virtual_accessible_name(self.context)
+        self.visible_children_count = self._jab_wrapper.get_visible_children_count(self.context)
         logging.debug(f"Parsed element role={self._aci.role}, name={self._aci.name}, VAN={self.virtual_accessible_name}")
         self.text = AccessibleTextParser(self._aci)
         self.value = AccessibleValueParser(self._aci)
@@ -82,12 +85,23 @@ class ContextNode:
             child_node = ContextNode(self._jab_wrapper, child_context, self._lock, self.ancestry + 1)
             self.children.append(child_node)
 
+    def get_visible_children(self) -> None:
+        visible_children = []
+        logging.debug(f"Expected visible children count={self.visible_children_count}")
+        if self.visible_children_count > 0:
+            found_visible_children = self._jab_wrapper.get_visible_children(self.context, 0)
+            logging.debug(f"Found visible children count={self.visible_children_count}")
+            for i in range(0, found_visible_children.returnedChildrenCount):
+                visible_child = ContextNode(self._jab_wrapper, found_visible_children.children[i], self._lock, self.ancestry + 1, False)
+                visible_children.append(visible_child)
+        return visible_children
+
     def __repr__(self) -> str:
         """
         Returns:
             A string that represents the object tree with detailed Node values.
         """
-        string = "{}Role={}, Name={}, VAN={}, Desc={}, St={}, Sts={}, at x={}:y={} w={} h={}; cc={};".format(
+        string = "{}Role={}, Name={}, VAN={}, Desc={}, St={}, Sts={}, at x={}:y={} w={} h={}; cc={}; vcc={}".format(
             '  ' * self.ancestry,
             repr(self.context_info.role),
             repr(self.context_info.name),
@@ -99,7 +113,8 @@ class ContextNode:
             self.context_info.y,
             self.context_info.width,
             self.context_info.height,
-            self.context_info.childrenCount
+            self.context_info.childrenCount,
+            self.visible_children_count
         )
         for parser in self._parsers:
             string += f"{parser}"
@@ -112,7 +127,7 @@ class ContextNode:
         Returns:
             A string of Node values.
         """
-        string = "Role={}, Name={}, VAN={}, Desc={}, St={}, Sts={}, at x={}:y={} w={} h={}; cc={};".format(
+        string = "Role={}, Name={}, VAN={}, Desc={}, St={}, Sts={}, at x={}:y={} w={} h={}; cc={}; vcc={}".format(
             repr(self.context_info.role),
             repr(self.context_info.name),
             repr(self.virtual_accessible_name),
@@ -123,7 +138,8 @@ class ContextNode:
             self.context_info.y,
             self.context_info.width,
             self.context_info.height,
-            self.context_info.childrenCount
+            self.context_info.childrenCount,
+            self.visible_children_count
         )
         for parser in self._parsers:
             string += "{}".format(parser)

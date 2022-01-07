@@ -112,7 +112,7 @@ def main():
         jab_wrapper = pipe.get()
         if not jab_wrapper:
             raise Exception("Failed to initialize Java Access Bridge Wrapper")
-        time.sleep(0.1)
+        time.sleep(0.5)
 
         # Init the JavaAccessBridge to certain window
         jab_wrapper.switch_window_by_title("Chat Frame")
@@ -168,6 +168,11 @@ def main():
         logging.debug("Found element by role (push button) and name (Clear): {}".format(clear_button))
         clear_button.click()
         wait_until_text_cleared(text_area)
+
+        # Assert visible children are found under the table object
+        table = context_info_tree.get_by_attrs([SearchElement("role", "table")])[0]
+        visible_children = table.get_visible_children()
+        assert table.visible_children_count == len(visible_children)
 
         # Open Menu item FILE
         menu_clicked = MenuClicked()
