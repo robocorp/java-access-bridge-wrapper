@@ -194,7 +194,7 @@ class ContextNode:
         Get all actions available for element
         """
         with self._lock:
-            return self.actions.list_actions
+            return self.actions.list_actions()
 
     def do_action(self, action: str) -> None:
         """

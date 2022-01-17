@@ -8,6 +8,7 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.*;
 import java.time.format.DateTimeFormatter;
+import java.util.Vector;
 import java.time.LocalDateTime;
 
 class BasicSwing extends JFrame implements WindowListener, ActionListener, ItemListener {
@@ -49,34 +50,11 @@ class BasicSwing extends JFrame implements WindowListener, ActionListener, ItemL
         taButtonPanel.add(text);
         taButtonPanel.add(clear);
 
-        String[] columnNames = {"Column1", "Column2", "Checkbox"};
-        Object[][] data = {
-            {"Cell11", "Cell12", true},
-            {"Cell21", "Cell22", false},
-            {"Cell31", "Cell32", false}
-        };
-        DefaultTableModel model = new DefaultTableModel(data, columnNames);
-        JTable table = new JTable(model) {
-            private static final long serialVersionUID = 1L;
-
-            /*@Override
-            public Class getColumnClass(int column) {
-            return getValueAt(0, column).getClass();
-            }*/
-            @Override
-            public Class getColumnClass(int column) {
-                switch (column) {
-                    case 0:
-                        return String.class;
-                    case 1:
-                        return String.class;
-                    case 2:
-                        return Boolean.class;
-                    default:
-                        return Boolean.class;
-                }
-            }
-        };
+        ExampleTableModel tableModel = new ExampleTableModel();
+        tableModel.addRow(new Object[]{"Cell11", "Cell12", true});
+        tableModel.addRow(new Object[]{"Cell21", "Cell22", false});
+        tableModel.addRow(new Object[]{"Cell31", "Cell32", false});
+        JTable table = new JTable(tableModel);
         table.setFillsViewportHeight(true);
 
         String comboBoxOptions[] = { "Hello", "World" };
@@ -84,7 +62,7 @@ class BasicSwing extends JFrame implements WindowListener, ActionListener, ItemL
         this.comboBox.addItemListener(this);
 
         JPanel leftPanel = new JPanel(new GridLayout(2, 1));
-        leftPanel.add(table);
+        leftPanel.add(new JScrollPane(table));
         leftPanel.add(this.comboBox);
 
         JPanel rightPanel = new JPanel(new GridLayout(2, 1));
@@ -186,6 +164,47 @@ class BasicSwing extends JFrame implements WindowListener, ActionListener, ItemL
         // if the state combobox is changed
         if (e.getSource() == this.comboBox) {
             ta.append(this.comboBox.getSelectedItem() + "\n");
+        }
+    }
+
+    public class ExampleTableModel extends DefaultTableModel {
+        private int editableColumn = 2;
+
+        public ExampleTableModel() {
+          super(new String[]{"Column1", "Column2", "Checkbox"}, 0);
+        }
+
+        @Override
+        public Class getColumnClass(int column) {
+            switch (column) {
+                case 0:
+                    return String.class;
+                case 1:
+                    return String.class;
+                case 2:
+                    return Boolean.class;
+                default:
+                    return Boolean.class;
+            }
+        }
+
+        @Override
+        public boolean isCellEditable(int row, int column) {
+            if (column == this.editableColumn) {
+                System.out.println("Is editable column");
+                return true;
+            }
+            return false;
+        }
+
+        @Override
+        public void setValueAt(Object aValue, int row, int column) {
+            if (aValue instanceof Boolean && column == this.editableColumn) {
+                System.out.println(aValue);
+                Vector rowData = (Vector)getDataVector().get(row);
+                rowData.set(this.editableColumn, (boolean)aValue);
+                fireTableCellUpdated(row, column);
+            }
         }
     }
 }
