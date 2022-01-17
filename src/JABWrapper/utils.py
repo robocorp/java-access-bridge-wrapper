@@ -50,6 +50,7 @@ class ReleaseEvent:
 
 
 class SearchElement:
-    def __init__(self, name, value) -> None:
+    def __init__(self, name, value, strict=False) -> None:
         self.name = name
         self.value = value
+        self.strict = strict

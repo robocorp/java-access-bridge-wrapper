@@ -165,7 +165,7 @@ def main():
 
         # Click the clear button
         logging.info("Clicking the clear button")
-        clear_button = context_info_tree.get_by_attrs([SearchElement("role", "push button"), SearchElement("name", "Clear"),
+        clear_button = context_info_tree.get_by_attrs([SearchElement("role", "push button", True), SearchElement("name", "Clear"),
                                                        SearchElement("indexInParent", 3)])[0]
         logging.debug("Found element by role (push button) and name (Clear): {}".format(clear_button))
         clear_button.click()

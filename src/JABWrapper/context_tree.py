@@ -153,7 +153,7 @@ class ContextNode:
     def _match_attrs(self, search_elements: List[SearchElement]) -> bool:
         for search_element in search_elements:
             attr = getattr(self._aci, search_element.name)
-            if isinstance(attr, str):
+            if isinstance(attr, str) and not search_element.strict:
                 if not attr.startswith(search_element.value):
                     return False
             else:
