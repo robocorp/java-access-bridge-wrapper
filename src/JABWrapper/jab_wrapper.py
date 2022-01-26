@@ -48,7 +48,10 @@ from JABWrapper.jab_types import (
 from JABWrapper.utils import ReleaseEvent
 
 
-logging_file_handler = logging.FileHandler("jab_wrapper.log", "w", "utf-8")
+log_path = os.path.join(os.getenv("ROBOT_ARTIFACTS", ""), "jab_wrapper.log")
+if not os.path.exists(os.path.dirname(log_path)):
+    os.mkdir(os.path.dirname(log_path))
+logging_file_handler = logging.FileHandler(log_path, "w", "utf-8")
 logging_file_handler.setFormatter(logging.Formatter("%(asctime)s [%(threadName)s] {%(filename)s:%(lineno)d} [%(levelname)s] %(message)s"))
 logging_file_handler.setLevel(logging.DEBUG)
 
