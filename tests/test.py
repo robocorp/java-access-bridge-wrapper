@@ -115,7 +115,9 @@ def main():
         time.sleep(0.5)
 
         # Init the JavaAccessBridge to certain window
-        jab_wrapper.switch_window_by_title("Chat Frame")
+        pid = jab_wrapper.switch_window_by_title("Chat Frame")
+        logging.info(f"Window PID={pid}")
+        assert pid is not None
         version_info = jab_wrapper.get_version_info()
         logging.info("VMversion={}; BridgeJavaClassVersion={}; BridgeJavaDLLVersion={}; BridgeWinDLLVersion={}\n".format(
             version_info.VMversion,

@@ -3,6 +3,8 @@ import sys
 import re
 import logging
 
+import win32process
+
 from ctypes import (
     CFUNCTYPE,
     c_long,
@@ -540,7 +542,7 @@ class JavaAccessBridgeWrapper:
             logging.debug(f"Releasing object={context}")
             self._wab.releaseJavaObject(self._vmID, c_long(context.value).value)
 
-    def switch_window_by_title(self, title: str) -> None:
+    def switch_window_by_title(self, title: str) -> int:
         """
         Switch the context to window by title.
 
@@ -548,7 +550,7 @@ class JavaAccessBridgeWrapper:
             title: name of the window title.
 
         Returns:
-            None
+            PID
 
         Raises:
             Exception: Window not found.
@@ -568,6 +570,10 @@ class JavaAccessBridgeWrapper:
             self._vmID,
             self.context,
         ))
+
+        # Return the PID of found window
+        _, found_pid = win32process.GetWindowThreadProcessId(self._hwnd)
+        return found_pid
 
     def get_accessible_context_from_hwnd(self, hwnd: wintypes.HWND) -> Tuple[c_long, JavaObject]:
         """
