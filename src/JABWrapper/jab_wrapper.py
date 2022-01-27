@@ -50,7 +50,7 @@ from JABWrapper.jab_types import (
 from JABWrapper.utils import ReleaseEvent
 
 
-log_path = os.path.join(os.getenv("ROBOT_ARTIFACTS", ""), "jab_wrapper.log")
+log_path = os.path.join(os.path.abspath(os.getenv("ROBOT_ARTIFACTS", "")), "jab_wrapper.log")
 if not os.path.exists(os.path.dirname(log_path)):
     os.mkdir(os.path.dirname(log_path))
 logging_file_handler = logging.FileHandler(log_path, "w", "utf-8")
