@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "java-access-bridge-wrapper"
-version = "0.9.2"
+version = "0.9.4"
 description = "Python wrapper for the Windows Java Access Bridge"
 license = "Apache-2.0"
 readme = "README.md"
@@ -21,7 +21,7 @@ classifiers = [
 ]
 
 packages = [
-    { include = "JABWrapper", from "src" },
+    { include = "JABWrapper", from = "src" },
 ]
 
 [tool.poetry.dependencies]
