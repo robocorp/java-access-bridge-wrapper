@@ -415,6 +415,12 @@ class ContextTree:
         Register callbacks to the jab wrapper when context updated events
         are generated from the Access Bridge
         """
+        if self._jab_wrapper.ignore_callbacks:
+            logging.debug("Ignoring callback regitering for Context Node")
+            return
+
+        self._jab_wrapper.clear_callbacks()
+
         # Property change event handlers
         self._jab_wrapper.register_callback("property_change", self._property_change_cp)
         self._jab_wrapper.register_callback("property_name_change", self._property_name_change_cp)

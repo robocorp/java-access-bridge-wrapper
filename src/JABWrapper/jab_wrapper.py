@@ -118,7 +118,7 @@ class JavaAccessBridgeWrapper:
     def __init__(self, ignore_callbacks=False) -> None:
         logging.debug("Loading WindowsAccessBridge")
 
-        self._ignore_callbacks = ignore_callbacks
+        self.ignore_callbacks = ignore_callbacks
 
         if "RC_JAVA_ACCESS_BRIDGE_DLL" not in os.environ:
             raise OSError("Environment variable: RC_JAVA_ACCESS_BRIDGE_DLL not found")
@@ -127,7 +127,7 @@ class JavaAccessBridgeWrapper:
         self._wab: cdll = cdll.LoadLibrary(os.path.normpath(os.environ['RC_JAVA_ACCESS_BRIDGE_DLL']))
         logging.debug("WindowsAccessBridge loaded succesfully")
         self._define_functions()
-        if not self._ignore_callbacks:
+        if not self.ignore_callbacks:
             self._define_callbacks()
             self._set_callbacks()
         self._wab.Windows_run()
@@ -143,7 +143,7 @@ class JavaAccessBridgeWrapper:
 
     def shutdown(self):
         self._context_callbacks = dict()
-        if not self._ignore_callbacks:
+        if not self.ignore_callbacks:
             self._remove_callbacks()
 
     def _define_functions(self) -> None:
@@ -1667,6 +1667,9 @@ class JavaAccessBridgeWrapper:
             self._context_callbacks[name].append(callback)
         else:
             self._context_callbacks[name] = [callback]
+
+    def clear_callbacks(self):
+        self._context_callbacks.clear()
 
     """
     Define the callback handlers
