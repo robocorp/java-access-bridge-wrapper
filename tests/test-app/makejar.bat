@@ -1,3 +1,3 @@
 
 javac BasicSwing.java
-jar cmvf META-INF/MANIFEST.MF BasicSwing.jar BasicSwing.class
+jar cmvf META-INF/MANIFEST.MF BasicSwing.jar BasicSwing.class BasicSwing$ExampleTableModel.class

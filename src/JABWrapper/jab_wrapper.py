@@ -116,9 +116,11 @@ class APIException(Exception):
 
 class JavaAccessBridgeWrapper:
     def __init__(self, ignore_callbacks=False) -> None:
-        logging.debug("Loading WindowsAccessBridge")
-
         self.ignore_callbacks = ignore_callbacks
+        self._init()
+
+    def _init(self) -> None:
+        logging.debug("Loading WindowsAccessBridge")
 
         if "RC_JAVA_ACCESS_BRIDGE_DLL" not in os.environ:
             raise OSError("Environment variable: RC_JAVA_ACCESS_BRIDGE_DLL not found")
@@ -136,7 +138,7 @@ class JavaAccessBridgeWrapper:
         self._vmID = c_long()
         self.context = JavaObject()
 
-        self._current_window: str = ''
+        self._expected_window: str = ''
 
         # Any reader can register callbacks here that are executed when AccessBridge events are seen
         self._context_callbacks: dict[str, List[Callable[[JavaObject], None]]] = dict()
@@ -491,7 +493,7 @@ class JavaAccessBridgeWrapper:
 
     def _enumerate_windows(self, hwnd, lParam) -> bool:
         if not hwnd:
-            logging.error("Invalid window handle={hwnd}")
+            logging.error(f"Invalid window handle={hwnd}")
             return True
 
         length = user32.GetWindowTextLengthW(hwnd) + 1
@@ -506,7 +508,7 @@ class JavaAccessBridgeWrapper:
             return True
         if isJava:
             logging.debug(f"found java window={title}")
-            regex = re.compile(self._current_window)
+            regex = re.compile(self._expected_window)
             if re.match(regex, title):
                 logging.debug(f"found matching window={title}")
                 self._hwnd = hwnd
@@ -523,7 +525,7 @@ class JavaAccessBridgeWrapper:
         self._vmID = vm_id
         self.context = context
 
-    def get_current_windows_handle(self) -> wintypes.HWND:
+    def get_expected_windows_handle(self) -> wintypes.HWND:
         return self._hwnd
 
     def release_object(self, context: JavaObject) -> None:
@@ -555,21 +557,27 @@ class JavaAccessBridgeWrapper:
         Raises:
             Exception: Window not found.
         """
+        self._context_callbacks.clear()
+        self._hwnd: wintypes.HWND = None
+        self._vmID = c_long()
+        self.context = JavaObject()
+
         # Add the title as the current context and find the correct window
-        self._current_window = title
-        self._vmID = None
-        self.context = None
+        self._expected_window = title
         windows = WNDENUMPROC(self._enumerate_windows)
         if not windll.user32.EnumWindows(windows, 0):
             raise WinError()
         if not self._hwnd or not self._vmID or not self.context:
             raise Exception("Window not found")
         logging.info("Found Java window text={}, hwnd={} vmID={} context={}\n".format(
-            self._current_window,
+            self._expected_window,
             self._hwnd,
             self._vmID,
             self.context,
         ))
+
+        if not self._hwnd:
+            raise Exception(f"Window not found={self._expected_window}")
 
         # Return the PID of found window
         _, found_pid = win32process.GetWindowThreadProcessId(self._hwnd)

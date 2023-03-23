@@ -33,9 +33,9 @@ class ContextNode:
     def _parse_context(self) -> None:
         logging.debug(f"Parsing element={self.context}")
         self._aci: AccessibleContextInfo = self._jab_wrapper.get_context_info(self.context)
+        logging.debug(f"Parsed element info={self._aci}")
         self.virtual_accessible_name = self._jab_wrapper.get_virtual_accessible_name(self.context)
         self.visible_children_count = self._jab_wrapper.get_visible_children_count(self.context)
-        logging.debug(f"Parsed element role={self._aci.role}, name={self._aci.name}, VAN={self.virtual_accessible_name}")
         self.text = AccessibleTextParser(self._aci)
         self.value = AccessibleValueParser(self._aci)
         self.actions = AccessibleActionsParser(self._aci)
