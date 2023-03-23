@@ -525,7 +525,7 @@ class JavaAccessBridgeWrapper:
         self._vmID = vm_id
         self.context = context
 
-    def get_expected_windows_handle(self) -> wintypes.HWND:
+    def get_current_windows_handle(self) -> wintypes.HWND:
         return self._hwnd
 
     def release_object(self, context: JavaObject) -> None:
