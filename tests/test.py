@@ -48,7 +48,7 @@ def pump_background(pipe: queue.Queue):
         message = byref(wintypes.MSG())
         while GetMessage(message, 0, 0, 0) > 0:
             TranslateMessage(message)
-            logging.info("Dispatching msg={}".format(repr(message)))
+            logging.debug("Dispatching msg={}".format(repr(message)))
             DispatchMessage(message)
     except Exception as err:
         logging.error(err)
@@ -100,7 +100,7 @@ class MenuClicked:
             raise Exception("File menu not clicked within timeout")
 
 
-def run_app_tests(jab_wrapper, title):
+def select_window(jab_wrapper, title):
     # Init the JavaAccessBridge to certain window
     pid = jab_wrapper.switch_window_by_title(title)
     logging.info(f"Window PID={pid}")
@@ -113,17 +113,16 @@ def run_app_tests(jab_wrapper, title):
         version_info.bridgeWinDLLVersion
     ))
 
+
+def parse_elements(jab_wrapper) -> ContextTree:
     # Parse the element tree of the window
     logging.info("Getting context tree")
     context_info_tree = ContextTree(jab_wrapper)
     write_to_file("context.txt", repr(context_info_tree))
+    return context_info_tree
 
-    # Set focus to main frame
-    logging.info("Setting focus to main frame")
-    root_pane = context_info_tree.get_by_attrs([SearchElement("role", "frame")])[0]
-    logging.info("Found element by role (frame): {}".format(root_pane))
-    root_pane.request_focus()
 
+def type_text_into_text_field(context_info_tree) -> ContextNode:
     # Type text into text field
     text = "Hello World"
     logging.info("Typing text into text field")
@@ -131,7 +130,18 @@ def run_app_tests(jab_wrapper, title):
     logging.debug("Found element by role (text): {}".format(text_area))
     text_area.insert_text(text)
     wait_until_text_contains(text_area, text)
+    return text_area
 
+
+def set_focus(context_info_tree):
+    # Set focus to main frame
+    logging.info("Setting focus to main frame")
+    root_pane = context_info_tree.get_by_attrs([SearchElement("role", "frame")])[0]
+    logging.info("Found element by role (frame): {}".format(root_pane))
+    root_pane.request_focus()
+
+
+def click_send_button(context_info_tree, text_area):
     # Click the send button
     logging.info("Clicking the send button")
     send_button = context_info_tree.get_by_attrs([SearchElement("role", "push button"), SearchElement("name", "Send"),
@@ -140,6 +150,8 @@ def run_app_tests(jab_wrapper, title):
     send_button.click()
     wait_until_text_contains(text_area, "default text")
 
+
+def select_combobox(jab_wrapper, context_info_tree, text_area):
     # Select combobox
     logging.info("Selecting text area")
     combo_box_menu = context_info_tree.get_by_attrs([SearchElement("role", "combo box")])[0]
@@ -152,6 +164,8 @@ def run_app_tests(jab_wrapper, title):
     assert not should_not_be_selected, "was not not selected"
     jab_wrapper.clear_accessible_selection_from_context(combo_box_menu.context)
 
+
+def click_clear_button(context_info_tree, text_area):
     # Click the clear button
     logging.info("Clicking the clear button")
     clear_button = context_info_tree.get_by_attrs([SearchElement("role", "push button", True), SearchElement("name", "Clear"),
@@ -160,26 +174,35 @@ def run_app_tests(jab_wrapper, title):
     clear_button.click()
     wait_until_text_cleared(text_area)
 
+
+def verify_table_content(context_info_tree):
     # Assert visible children are found under the table object
     table = context_info_tree.get_by_attrs([SearchElement("role", "table")])[0]
     visible_children = table.get_visible_children()
     assert table.visible_children_count == len(visible_children), "visible child count incorrect"
 
+
+def open_menu_item_file(jab_wrapper, context_info_tree):
     # Open Menu item FILE
     menu_clicked = MenuClicked()
     jab_wrapper.register_callback("menu_selected", menu_clicked.menu_clicked_callback)
     logging.info("Opening Menu item FILE")
     file_menu = context_info_tree.get_by_attrs([SearchElement("role", "menu"), SearchElement("name", "FILE")])[0]
-    logging.debug("Found element by role (push button) and name (FILE): {}".format(clear_button))
+    logging.debug("Found element by role (push button) and name (FILE): {}".format(file_menu))
     file_menu.click()
     menu_clicked.wait_until_menu_clicked()
 
+
+def click_exit_menu(context_info_tree) -> ContextNode:
     # Click the exit menu
     logging.info("Clicking the exit menu")
     exit_menu = context_info_tree.get_by_attrs([SearchElement("role", "menu item"), SearchElement("name", "Exit")])[0]
     logging.debug("Found element by role (menu item) and name (Exit): {}".format(exit_menu))
     exit_menu.click()
+    return exit_menu
 
+
+def click_exit(jab_wrapper, exit_menu):
     # Switch to new exit window and click the exit button
     logging.info("Switching to exit frame and clicking the exit button")
     jab_wrapper.switch_window_by_title("Exit")
@@ -188,6 +211,23 @@ def run_app_tests(jab_wrapper, title):
     exit_button = context_info_tree_for_exit_frame.get_by_attrs([SearchElement("role", "push button"), SearchElement("name", "Exit ok")])[0]
     logging.debug("Found element by role (push button) and name (Exit ok): {}".format(exit_menu))
     exit_button.click()
+
+
+def shutdown_app(jab_wrapper, context_info_tree):
+    open_menu_item_file(jab_wrapper, context_info_tree)
+    exit_menu = click_exit_menu(context_info_tree)
+    click_exit(jab_wrapper, exit_menu)
+
+
+def run_app_tests(jab_wrapper, title):
+    select_window(jab_wrapper, title)
+    context_info_tree = parse_elements(jab_wrapper)
+    set_focus(context_info_tree)
+    text_area = type_text_into_text_field(context_info_tree)
+    click_send_button(context_info_tree, text_area)
+    click_clear_button(context_info_tree, text_area)
+    verify_table_content(context_info_tree)
+    shutdown_app(jab_wrapper, context_info_tree)
 
 
 def main():
@@ -205,13 +245,8 @@ def main():
 
         start_test_application("Chat Frame")
         run_app_tests(jab_wrapper, "Chat Frame")
-
-        # time.sleep(0.5)
-        # jab_wrapper.shutdown()
-        # jab_wrapper._wab.Windows_run()
-        # jab_wrapper.refresh()
-        start_test_application("Chat Frame")
-        run_app_tests(jab_wrapper, "Chat Frame")
+        start_test_application("Foo bar")
+        run_app_tests(jab_wrapper, "Foo bar")
     except Exception as e:
         logging.error(f"error={type(e)} - {e}")
     finally:
