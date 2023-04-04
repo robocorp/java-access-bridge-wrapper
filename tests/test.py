@@ -100,9 +100,12 @@ class MenuClicked:
             raise Exception("File menu not clicked within timeout")
 
 
-def select_window(jab_wrapper, title):
+def select_window(jab_wrapper, window_id):
     # Init the JavaAccessBridge to certain window
-    pid = jab_wrapper.switch_window_by_title(title)
+    if isinstance(window_id, int):
+        pid = jab_wrapper.switch_window_by_pid(window_id)
+    else:
+        pid = jab_wrapper.switch_window_by_title(window_id)
     logging.info(f"Window PID={pid}")
     assert pid is not None, "Pid is none"
     version_info = jab_wrapper.get_version_info()
@@ -219,8 +222,8 @@ def shutdown_app(jab_wrapper, context_info_tree):
     click_exit(jab_wrapper, exit_menu)
 
 
-def run_app_tests(jab_wrapper, title):
-    select_window(jab_wrapper, title)
+def run_app_tests(jab_wrapper, window_id):
+    select_window(jab_wrapper, window_id)
     context_info_tree = parse_elements(jab_wrapper)
     set_focus(context_info_tree)
     text_area = type_text_into_text_field(context_info_tree)
@@ -244,9 +247,16 @@ def main():
         time.sleep(0.5)
 
         start_test_application("Chat Frame")
-        run_app_tests(jab_wrapper, "Chat Frame")
+        windows = jab_wrapper.get_windows()
+        title = windows[0].title
+        assert title == "Chat Frame", f"Invalid window found={title}"
+        run_app_tests(jab_wrapper, title)
+
         start_test_application("Foo bar")
-        run_app_tests(jab_wrapper, "Foo bar")
+        windows = jab_wrapper.get_windows()
+        title = windows[0].title
+        assert title == "Foo bar", f"Invalid window found={title}"
+        run_app_tests(jab_wrapper, windows[0].pid)
     except Exception as e:
         logging.error(f"error={type(e)} - {e}")
     finally:

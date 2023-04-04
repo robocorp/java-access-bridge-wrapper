@@ -49,6 +49,8 @@ from JABWrapper.jab_types import (
 )
 from JABWrapper.utils import ReleaseEvent
 
+from dataclasses import dataclass
+
 
 log_path = os.path.join(os.path.abspath(os.getenv("ROBOT_ARTIFACTS", "")), "jab_wrapper.log")
 if not os.path.exists(os.path.dirname(log_path)):
@@ -114,6 +116,57 @@ class APIException(Exception):
         super().__init__(*args)
 
 
+@dataclass
+class JavaWindow:
+    pid: int
+    hwnd: int
+    title: str
+
+
+class Enumerator:
+    def __init__(self, wab) -> None:
+        self._wab = wab
+        self._windows: List[JavaWindow] = []
+
+    @property
+    def windows(self):
+        return self._windows
+
+    def find_by_title(self, title: str) -> JavaWindow:
+        regex = re.compile(title)
+        for window in self._windows:
+            if re.match(regex, window.title):
+                return window
+
+    def find_by_pid(self, pid: int) -> JavaWindow:
+        for window in self._windows:
+            if window.pid == pid:
+                return window
+
+    def enumerate(self, hwnd, lParam) -> bool:
+        if not hwnd:
+            logging.error(f"Invalid window handle={hwnd}")
+            return True
+
+        length = user32.GetWindowTextLengthW(hwnd) + 1
+        buffer = create_unicode_buffer(length)
+        user32.GetWindowTextW(hwnd, buffer, length)
+        isJava = False
+        title = buffer.value
+        try:
+            isJava = self._wab.isJavaWindow(hwnd)
+        except OSError as e:
+            logging.error(f"Failed to enumerate window={hwnd} error={e}")
+            return True
+        if isJava:
+            _, found_pid = win32process.GetWindowThreadProcessId(hwnd)
+            java_window = JavaWindow(found_pid, hwnd, title)
+            logging.debug(f"found window title={java_window.title} pid={java_window.pid} hwnd={java_window.hwnd}")
+            self._windows.append(java_window)
+
+        return True
+
+
 class JavaAccessBridgeWrapper:
     def __init__(self, ignore_callbacks=False) -> None:
         self.ignore_callbacks = ignore_callbacks
@@ -137,8 +190,6 @@ class JavaAccessBridgeWrapper:
         self._hwnd: wintypes.HWND = None
         self._vmID = c_long()
         self.context = JavaObject()
-
-        self._expected_window: str = ''
 
         # Any reader can register callbacks here that are executed when AccessBridge events are seen
         self._context_callbacks: dict[str, List[Callable[[JavaObject], None]]] = dict()
@@ -491,33 +542,6 @@ class JavaAccessBridgeWrapper:
         self._wab.setPopupMenuWillBecomeInvisibleFP(None)
         self._wab.setPopupMenuWillBecomeVisibleFP(None)
 
-    def _enumerate_windows(self, hwnd, lParam) -> bool:
-        if not hwnd:
-            logging.error(f"Invalid window handle={hwnd}")
-            return True
-
-        length = user32.GetWindowTextLengthW(hwnd) + 1
-        buffer = create_unicode_buffer(length)
-        user32.GetWindowTextW(hwnd, buffer, length)
-        isJava = False
-        title = buffer.value
-        try:
-            isJava = self._wab.isJavaWindow(hwnd)
-        except OSError as e:
-            logging.error(f"Failed to enumerate window={hwnd} error={e}")
-            return True
-        if isJava:
-            logging.debug(f"found java window={title}")
-            regex = re.compile(self._expected_window)
-            if re.match(regex, title):
-                logging.debug(f"found matching window={title}")
-                self._hwnd = hwnd
-                self._vmID = c_long()
-                self.context = JavaObject()
-                self._wab.getAccessibleContextFromHWND(self._hwnd, byref(self._vmID), byref(self.context))
-
-        return True
-
     def set_hwnd(self, hwnd: wintypes.HWND) -> None:
         self._hwnd = hwnd
 
@@ -563,28 +587,95 @@ class JavaAccessBridgeWrapper:
         self.context = JavaObject()
 
         # Add the title as the current context and find the correct window
-        self._expected_window = title
-        windows = WNDENUMPROC(self._enumerate_windows)
+        enumerator = Enumerator(self._wab)
+        windows = WNDENUMPROC(enumerator.enumerate)
         if not windll.user32.EnumWindows(windows, 0):
             raise WinError()
+
+        java_window = enumerator.find_by_title(title)
+        logging.debug(f"found matching window={title}")
+        self._hwnd = java_window.hwnd
+        self._vmID = c_long()
+        self.context = JavaObject()
+        self._wab.getAccessibleContextFromHWND(self._hwnd, byref(self._vmID), byref(self.context))
+
         if not self._hwnd or not self._vmID or not self.context:
             raise Exception("Window not found")
 
         if not self._hwnd:
-            raise Exception(f"Window not found={self._expected_window}")
-
-        # Return the PID of found window
-        _, found_pid = win32process.GetWindowThreadProcessId(self._hwnd)
+            raise Exception(f"Window not found={title}")
 
         logging.info("Found Java window text={} pid={} hwnd={} vmID={} context={}\n".format(
-            self._expected_window,
-            found_pid,
+            java_window.title,
+            java_window.pid,
             self._hwnd,
             self._vmID,
             self.context,
         ))
 
-        return found_pid
+        return java_window.pid
+
+    def switch_window_by_pid(self, pid: int) -> int:
+        """
+        Switch the context to window by PID.
+
+        Args:
+            PID: process ID.
+
+        Returns:
+            PID
+
+        Raises:
+            Exception: Window not found.
+        """
+        self._context_callbacks = dict()
+        self._hwnd: wintypes.HWND = None
+        self._vmID = c_long()
+        self.context = JavaObject()
+
+        enumerator = Enumerator(self._wab)
+        windows = WNDENUMPROC(enumerator.enumerate)
+        if not windll.user32.EnumWindows(windows, 0):
+            raise WinError()
+
+        java_window = enumerator.find_by_pid(pid)
+        logging.debug(f"found matching window={pid}")
+        self._hwnd = java_window.hwnd
+        self._vmID = c_long()
+        self.context = JavaObject()
+        self._wab.getAccessibleContextFromHWND(self._hwnd, byref(self._vmID), byref(self.context))
+
+        if not self._hwnd or not self._vmID or not self.context:
+            raise Exception("Window not found")
+
+        if not self._hwnd:
+            raise Exception(f"Window not found={pid}")
+
+        logging.info("Found Java window text={} pid={} hwnd={} vmID={} context={}\n".format(
+            java_window.title,
+            java_window.pid,
+            self._hwnd,
+            self._vmID,
+            self.context,
+        ))
+
+        return java_window.pid
+
+    def get_windows(self) -> List[JavaWindow]:
+        """
+        Find all available Java windows.
+
+        Returns:
+            List of JavaWindow objects, a dataclass that contains: pid, hwnd and title.
+
+        Raises:
+            Windows Exception.
+        """
+        enumerator = Enumerator(self._wab)
+        windows = WNDENUMPROC(enumerator.enumerate)
+        if not windll.user32.EnumWindows(windows, 0):
+            raise WinError()
+        return enumerator.windows
 
     def get_accessible_context_from_hwnd(self, hwnd: wintypes.HWND) -> Tuple[c_long, JavaObject]:
         """
