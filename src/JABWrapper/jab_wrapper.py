@@ -557,7 +557,7 @@ class JavaAccessBridgeWrapper:
         Raises:
             Exception: Window not found.
         """
-        self._context_callbacks.clear()
+        self._context_callbacks = dict()
         self._hwnd: wintypes.HWND = None
         self._vmID = c_long()
         self.context = JavaObject()
@@ -569,18 +569,21 @@ class JavaAccessBridgeWrapper:
             raise WinError()
         if not self._hwnd or not self._vmID or not self.context:
             raise Exception("Window not found")
-        logging.info("Found Java window text={}, hwnd={} vmID={} context={}\n".format(
-            self._expected_window,
-            self._hwnd,
-            self._vmID,
-            self.context,
-        ))
 
         if not self._hwnd:
             raise Exception(f"Window not found={self._expected_window}")
 
         # Return the PID of found window
         _, found_pid = win32process.GetWindowThreadProcessId(self._hwnd)
+
+        logging.info("Found Java window text={} pid={} hwnd={} vmID={} context={}\n".format(
+            self._expected_window,
+            found_pid,
+            self._hwnd,
+            self._vmID,
+            self.context,
+        ))
+
         return found_pid
 
     def get_accessible_context_from_hwnd(self, hwnd: wintypes.HWND) -> Tuple[c_long, JavaObject]:
