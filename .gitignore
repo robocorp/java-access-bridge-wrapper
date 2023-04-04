@@ -132,3 +132,6 @@ dmypy.json
 context.txt
 BasicSwing.jar
 BasicSwing.class
+
+# Java
+*.class
