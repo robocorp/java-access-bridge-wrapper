@@ -240,6 +240,48 @@ class ContextNode:
                 visible_child = ContextNode(self._jab_wrapper, found_visible_children.children[i], self._lock, self.ancestry + 1, False)
                 visible_children.append(visible_child)
         return visible_children
+    
+    def set_caret_position(self, position):
+        """
+        Set the caret to the given position
+
+        Args:
+            position: int representing the index where to set the caret.
+
+        Raises:
+            APIException: Failed to set the caret.
+        """
+        self._jab_wrapper.set_caret_position(self.context, position)
+
+    def get_caret_position(self, index):
+        """
+        Get the coordinates of the current caret location. External method uses `position` for consistency
+        instead of `location`.
+
+        Args:
+            context: the element context handle.
+            index: TODO
+
+        Returns:
+            An AccessibleTextRectInfo object.
+
+        Raises:
+            APIException: failed to call the java access bridge API with attributes or failed to get location.
+        """
+        return self._jab_wrapper.get_caret_location(self.context, index)
+    
+    def select_text_range(self, start_index: int, end_index: int):
+        """
+        Select text within given range
+
+        Args:
+            start_index: int for start of selection as index.
+            end_index: int for end of selection as index.
+
+        Raises:
+            APIException: failed to call the java access bridge API with attributes or failed to make selection.
+        """
+        return self._jab_wrapper.select_text_range(self.context, start_index, end_index)
 
 
 class ContextTree:
