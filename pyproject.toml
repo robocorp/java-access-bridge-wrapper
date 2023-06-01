@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "java-access-bridge-wrapper"
-version = "0.10.0"
+version = "0.11.0"
 description = "Python wrapper for the Windows Java Access Bridge"
 license = "Apache-2.0"
 readme = "README.md"
@@ -30,6 +30,9 @@ pywin32 = { version = ">=300,<304", platform = "win32", python = "!=3.8.1,!=3.7.
 
 [tool.poetry.dev-dependencies]
 flake8 = "^3.9.2"
+
+[tool.poetry.scripts]
+java_tree_reader = 'JABWrapper.context_tree_reader:main'
 
 [build-system]
 requires = ["poetry>=0.12"]
