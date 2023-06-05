@@ -90,11 +90,12 @@ class ContextNode:
         Returns:
             A string that represents the object tree with detailed Node values.
         """
-        string = "{}Role={}, Name={}, VAN={}, Desc={}, St={}, Sts={}, at x={}:y={} w={} h={}; indexInParent={}; cc={}; vcc={}".format(
+        string = "{}Role={}, Name={}, VAN={}, Desc={}, Ancestry={}, St={}, Sts={}, at x={}:y={} w={} h={}; indexInParent={}; cc={}; vcc={}".format(
             '  ' * self.ancestry,
             repr(self.context_info.role),
             repr(self.context_info.name),
             repr(self.virtual_accessible_name),
+            repr(self.ancestry),
             repr(self.context_info.description),
             repr(self.state),
             repr(self.context_info.states),
@@ -117,10 +118,11 @@ class ContextNode:
         Returns:
             A string of Node values.
         """
-        string = "Role={}, Name={}, VAN={}, Desc={}, St={}, Sts={}, at x={}:y={} w={} h={}; indexInParent={}; cc={}; vcc={}".format(
+        string = "Role={}, Name={}, VAN={}, ancestry={}, Desc={}, St={}, Sts={}, at x={}:y={} w={} h={}; indexInParent={}; cc={}; vcc={}".format(
             repr(self.context_info.role),
             repr(self.context_info.name),
             repr(self.virtual_accessible_name),
+            repr(self.ancestry),
             repr(self.context_info.description),
             repr(self.state),
             repr(self.context_info.states),
@@ -135,6 +137,14 @@ class ContextNode:
         for parser in self._parsers:
             string += "{}".format(parser)
         return string
+
+    def traverse(self):
+        yield self
+        for child in self.children:
+            yield from child.traverse()
+
+    def __iter__(self):
+        return self.traverse()
 
     def _get_node_by_context(self, context: JavaObject):
         if self._jab_wrapper.is_same_object(self.context, context):
@@ -249,6 +259,9 @@ class ContextTree:
         self._jab_wrapper = jab_wrapper
         self.root = ContextNode(jab_wrapper, jab_wrapper.context, self._lock)
         self._register_callbacks()
+
+    def __iter__(self):
+        return self.root.traverse()
 
     def __repr__(self) -> str:
         return f"{repr(self.root)}"

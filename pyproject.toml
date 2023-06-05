@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "java-access-bridge-wrapper"
-version = "0.11.0"
+version = "0.12.0"
 description = "Python wrapper for the Windows Java Access Bridge"
 license = "Apache-2.0"
 readme = "README.md"
