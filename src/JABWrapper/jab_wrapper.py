@@ -23,6 +23,8 @@ from ctypes import (
     create_unicode_buffer
 )
 
+from _ctypes import FreeLibrary
+
 from typing import Callable, List, Tuple
 
 from JABWrapper.jab_types import (
@@ -195,9 +197,14 @@ class JavaAccessBridgeWrapper:
         self._context_callbacks: dict[str, List[Callable[[JavaObject], None]]] = dict()
 
     def shutdown(self):
+        # Call at the end to execution to free memory and unload the
+        # windows wrapper.dll
         self._context_callbacks = dict()
         if not self.ignore_callbacks:
             self._remove_callbacks()
+        if self._wab and self._wab._handle:
+            FreeLibrary(self._wab._handle)
+            del self._wab
 
     def _define_functions(self) -> None:
         # void Windows_run()
