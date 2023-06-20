@@ -9,6 +9,7 @@ Python wrapper around the Java Access Bridge / Windows Access Bridge.
 
 * 64-bit Windows
 * Java >= 8 (https://docs.aws.amazon.com/corretto/latest/corretto-8-ug/downloads-list.html)
+  * If you are doing development install JDK, otherwise JRE is enough
 * Python >= 3.7 (https://www.python.org/downloads/release/python-375/)
 
 Enable the Java Access Bridge in windows
@@ -74,9 +75,13 @@ Once the JABWrapper object is initialized, attach to some frame and optionally c
 
 Run test script against simple Swing application
 
-set environment variable
+Set environment variable
 
     set RC_JAVA_ACCESS_BRIDGE_DLL="C:\path\to\Java\bin\WindowsAccessBridge-64.dll"
+
+Initialize poetry
+
+    poetry intall
 
 Run test with poetry
 
