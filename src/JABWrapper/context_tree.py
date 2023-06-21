@@ -90,23 +90,20 @@ class ContextNode:
         Returns:
             A string that represents the object tree with detailed Node values.
         """
-        string = "{}Role={}, Name={}, VAN={}, Desc={}, Ancestry={}, St={}, Sts={}, at x={}:y={} w={} h={}; indexInParent={}; cc={}; vcc={}".format(
-            '  ' * self.ancestry,
-            repr(self.context_info.role),
-            repr(self.context_info.name),
-            repr(self.virtual_accessible_name),
-            repr(self.ancestry),
-            repr(self.context_info.description),
-            repr(self.state),
-            repr(self.context_info.states),
-            self.context_info.x,
-            self.context_info.y,
-            self.context_info.width,
-            self.context_info.height,
-            self.context_info.indexInParent,
-            self.context_info.childrenCount,
-            self.visible_children_count
-        )
+        string = (f"{'| ' * self.ancestry}"
+                  f"role:{self.context_info.role}; "
+                  f"name:{self.context_info.name}; "
+                  f"virtual_accessible_name:{self.virtual_accessible_name}; "
+                  f"description:{self.context_info.description}; "
+                  f"ancestry:{self.ancestry}; "
+                  f"state:{self.state}; "
+                  f"states={self.context_info.states}; "
+                  f"at x:{self.context_info.x} y:{self.context_info.y}; "
+                  f"width:{self.context_info.width}; "
+                  f"height:{self.context_info.height}; "
+                  f"indexInParent:{self.context_info.indexInParent}; "
+                  f"childrenCount:{self.context_info.childrenCount}; "
+                  f"visible_children_count:{self.visible_children_count}")
         for parser in self._parsers:
             string += f"{parser}"
         for child in self.children:
@@ -118,24 +115,31 @@ class ContextNode:
         Returns:
             A string of Node values.
         """
-        string = "Role={}, Name={}, VAN={}, ancestry={}, Desc={}, St={}, Sts={}, at x={}:y={} w={} h={}; indexInParent={}; cc={}; vcc={}".format(
-            repr(self.context_info.role),
-            repr(self.context_info.name),
-            repr(self.virtual_accessible_name),
-            repr(self.ancestry),
-            repr(self.context_info.description),
-            repr(self.state),
-            repr(self.context_info.states),
-            self.context_info.x,
-            self.context_info.y,
-            self.context_info.width,
-            self.context_info.height,
-            self.context_info.indexInParent,
-            self.context_info.childrenCount,
-            self.visible_children_count
-        )
+        string = (f"role:{self.context_info.role}, "
+                  f"name:{self.context_info.name}, "
+                  f"virtual_accessible_name:{self.virtual_accessible_name}; "
+                  f"description:{self.context_info.description}; "
+                  f"ancestry:{self.ancestry}; "
+                  f"state:{self.state}; "
+                  f"states={self.context_info.states}; "
+                  f"at x:{self.context_info.x} y:{self.context_info.y}; "
+                  f"width:{self.context_info.width}; "
+                  f"height:{self.context_info.height}; "
+                  f"indexInParent:{self.context_info.indexInParent}; "
+                  f"childrenCount:{self.context_info.childrenCount}; "
+                  f"visible_children_count:{self.visible_children_count}")
         for parser in self._parsers:
             string += "{}".format(parser)
+        return string
+
+    def get_library_locator_tree_as_text(self):
+        """
+        Returns node info in library locator format.
+        """
+        string = (f"{'| ' * self.ancestry}role:{self.context_info.role} and name:{self.context_info.name} and "
+                  f"description:{self.context_info.description} and indexInParent:{self.context_info.indexInParent}")
+        for child in self.children:
+            string += f"\n{child.get_library_locator_tree_as_text()}"
         return string
 
     def traverse(self):
@@ -268,6 +272,9 @@ class ContextTree:
 
     def __str__(self):
         return f"{self.root}"
+
+    def get_library_locator_tree_as_text(self):
+        return self.root.get_library_locator_tree_as_text()
 
     @retry_callback
     def _property_change_cp(self, source: JavaObject, property: str, old_value: str, new_value: str) -> None:

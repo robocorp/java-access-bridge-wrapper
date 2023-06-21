@@ -214,7 +214,8 @@ def main():
     locator = ' '.join(sys.argv[2:])
     simulator = LocatorSimulator(output_file)
     simulator.parse_element_tree()
-    print([str(item).strip() for item in simulator.find_element(locator)])
+    for element in simulator.find_element(locator):
+        print(str(element))
 
 
 if __name__ == '__main__':
