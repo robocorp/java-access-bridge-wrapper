@@ -19,9 +19,16 @@ from JABWrapper.parsers.selection_parser import AccessibleSelectionParser
 
 @dataclass
 class NodeLocator:
-    role: str
     name: str
     description: str
+    role: str
+    states: str
+    indexInParent: int
+    childrenCount: int
+    x: int
+    y: int
+    width: int
+    height: int
     ancestry: int
 
 
@@ -147,9 +154,16 @@ class ContextNode:
         """
         nodes = list()
         nodes.append({
-            "role": self.context_info.role,
             "name": self.context_info.name,
             "description": self.context_info.description,
+            "role": self.context_info.role,
+            "states": self.context_info.states,
+            "indexInParent": self.context_info.indexInParent,
+            "childrenCount": self.context_info.childrenCount,
+            "x": self.context_info.x,
+            "y": self.context_info.y,
+            "width": self.context_info.width,
+            "height": self.context_info.height,
             "ancestry": self.ancestry
         })
         for child in self.children:
