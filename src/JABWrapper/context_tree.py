@@ -1,6 +1,7 @@
 import logging
 import threading
 from typing import List
+from dataclasses import dataclass
 
 from JABWrapper.jab_wrapper import JavaAccessBridgeWrapper
 from JABWrapper.jab_types import JavaObject, AccessibleContextInfo
@@ -14,6 +15,14 @@ from JABWrapper.parsers.keybind_parser import AccessibleKeyBindingsParser
 from JABWrapper.parsers.hypertext_parser import AccessibleHypertextParser
 from JABWrapper.parsers.table_parser import AccessibleTableParser
 from JABWrapper.parsers.selection_parser import AccessibleSelectionParser
+
+
+@dataclass
+class NodeLocator:
+    role: str
+    name: str
+    description: str
+    ancestry: int
 
 
 class ContextNode:
@@ -131,6 +140,21 @@ class ContextNode:
         for parser in self._parsers:
             string += "{}".format(parser)
         return string
+
+    def get_search_element_tree(self) -> List[NodeLocator]:
+        """
+        Returns node info for all searcheable elements.
+        """
+        nodes = list()
+        nodes.append({
+            "role": self.context_info.role,
+            "name": self.context_info.name,
+            "description": self.context_info.description,
+            "ancestry": self.ancestry
+        })
+        for child in self.children:
+            nodes += child.get_search_element_tree()
+        return nodes
 
     def get_library_locator_tree_as_text(self):
         """
@@ -272,6 +296,9 @@ class ContextTree:
 
     def __str__(self):
         return f"{self.root}"
+
+    def get_search_element_tree(self):
+        return self.root.get_search_element_tree()
 
     def get_library_locator_tree_as_text(self):
         return self.root.get_library_locator_tree_as_text()
