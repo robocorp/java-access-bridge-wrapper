@@ -115,8 +115,8 @@ class ContextNode:
         Returns:
             A string of Node values.
         """
-        string = (f"role:{self.context_info.role}, "
-                  f"name:{self.context_info.name}, "
+        string = (f"role:{self.context_info.role}; "
+                  f"name:{self.context_info.name}; "
                   f"virtual_accessible_name:{self.virtual_accessible_name}; "
                   f"description:{self.context_info.description}; "
                   f"ancestry:{self.ancestry}; "
