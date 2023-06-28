@@ -1,6 +1,7 @@
 import logging
 import threading
 from typing import List
+from dataclasses import dataclass
 
 from JABWrapper.jab_wrapper import JavaAccessBridgeWrapper
 from JABWrapper.jab_types import JavaObject, AccessibleContextInfo
@@ -14,6 +15,21 @@ from JABWrapper.parsers.keybind_parser import AccessibleKeyBindingsParser
 from JABWrapper.parsers.hypertext_parser import AccessibleHypertextParser
 from JABWrapper.parsers.table_parser import AccessibleTableParser
 from JABWrapper.parsers.selection_parser import AccessibleSelectionParser
+
+
+@dataclass
+class NodeLocator:
+    name: str
+    description: str
+    role: str
+    states: str
+    indexInParent: int
+    childrenCount: int
+    x: int
+    y: int
+    width: int
+    height: int
+    ancestry: int
 
 
 class ContextNode:
@@ -132,15 +148,27 @@ class ContextNode:
             string += "{}".format(parser)
         return string
 
-    def get_library_locator_tree_as_text(self):
+    def get_search_element_tree(self) -> List[NodeLocator]:
         """
-        Returns node info in library locator format.
+        Returns node info for all searcheable elements.
         """
-        string = (f"{'| ' * self.ancestry}role:{self.context_info.role} and name:{self.context_info.name} and "
-                  f"description:{self.context_info.description} and indexInParent:{self.context_info.indexInParent}")
+        nodes = list()
+        nodes.append({
+            "name": self.context_info.name,
+            "description": self.context_info.description,
+            "role": self.context_info.role,
+            "states": self.context_info.states,
+            "indexInParent": self.context_info.indexInParent,
+            "childrenCount": self.context_info.childrenCount,
+            "x": self.context_info.x,
+            "y": self.context_info.y,
+            "width": self.context_info.width,
+            "height": self.context_info.height,
+            "ancestry": self.ancestry
+        })
         for child in self.children:
-            string += f"\n{child.get_library_locator_tree_as_text()}"
-        return string
+            nodes += child.get_search_element_tree()
+        return nodes
 
     def traverse(self):
         yield self
@@ -273,8 +301,8 @@ class ContextTree:
     def __str__(self):
         return f"{self.root}"
 
-    def get_library_locator_tree_as_text(self):
-        return self.root.get_library_locator_tree_as_text()
+    def get_search_element_tree(self):
+        return self.root.get_search_element_tree()
 
     @retry_callback
     def _property_change_cp(self, source: JavaObject, property: str, old_value: str, new_value: str) -> None:

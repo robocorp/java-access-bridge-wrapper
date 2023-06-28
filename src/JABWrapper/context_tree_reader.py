@@ -14,6 +14,7 @@ from JABWrapper.jab_types import (
 
 MATCH = re.compile(r"^(\s+)?Role=(.*?), Name=(.*?), VAN=(.*?), Desc=?(.*?)")
 
+MATCH_OPTION = re.compile(r"^[\|\s]*?role:(.*?); name:(.*?); virtual_accessible_name:(.*?); description:?(.*?); ancestry:(\d+)*")
 
 IntegerLocatorTypes = ["x", "y", "width", "height", "indexInParent", "childrentCount"]
 
@@ -21,12 +22,21 @@ IntegerLocatorTypes = ["x", "y", "width", "height", "indexInParent", "childrentC
 class Row:
     def __init__(self, line: str):
         match = re.search(MATCH, line)
-        groups = match.groups()
-        self.ancestry = int(len(groups[0]) / 2) if groups[0] else 0
-        self.role = groups[1][1:-1]  # strip first first and last char
-        self.name = groups[2][1:-1]  # strip first first and last char
-        self.van = groups[3][1:-1]  # strip first first and last char
-        self.desc = groups[4][1:-1]  # strip first first and last char
+        if match:
+            groups = match.groups()
+            self.ancestry = int(len(groups[0]) / 2) if groups[0] else 0
+            self.role = groups[1][1:-1]  # strip first first and last char
+            self.name = groups[2][1:-1]  # strip first first and last char
+            self.van = groups[3][1:-1]  # strip first first and last char
+            self.desc = groups[4][1:-1]  # strip first first and last char
+        else:
+            match = re.search(MATCH_OPTION, line)
+            groups = match.groups()
+            self.role = groups[0]
+            self.name = groups[1]
+            self.van = groups[2]
+            self.desc = groups[3]
+            self.ancestry = int(groups[4])
 
     def __str__(self):
         return f"{self.ancestry} role='{self.role}' name='{self.name}' van='{self.van}' desc='{self.desc}'"
