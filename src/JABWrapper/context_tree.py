@@ -170,16 +170,6 @@ class ContextNode:
             nodes += child.get_search_element_tree()
         return nodes
 
-    def get_library_locator_tree_as_text(self):
-        """
-        Returns node info in library locator format.
-        """
-        string = (f"{'| ' * self.ancestry}role:{self.context_info.role} and name:{self.context_info.name} and "
-                  f"description:{self.context_info.description} and indexInParent:{self.context_info.indexInParent}")
-        for child in self.children:
-            string += f"\n{child.get_library_locator_tree_as_text()}"
-        return string
-
     def traverse(self):
         yield self
         for child in self.children:
@@ -313,9 +303,6 @@ class ContextTree:
 
     def get_search_element_tree(self):
         return self.root.get_search_element_tree()
-
-    def get_library_locator_tree_as_text(self):
-        return self.root.get_library_locator_tree_as_text()
 
     @retry_callback
     def _property_change_cp(self, source: JavaObject, property: str, old_value: str, new_value: str) -> None:
