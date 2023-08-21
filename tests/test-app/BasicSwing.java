@@ -7,20 +7,36 @@ import javax.swing.table.DefaultTableModel;
 
 import java.awt.*;
 import java.awt.event.*;
+import java.security.interfaces.RSAKey;
 import java.time.format.DateTimeFormatter;
+import java.util.Random;
 import java.util.Vector;
 import java.time.LocalDateTime;
 
 class BasicSwing extends JFrame implements WindowListener, ActionListener, ItemListener {
+    Random random = new Random();
     DateTimeFormatter dtf = DateTimeFormatter.ofPattern("HH:mm:ss");
     TextField text = new TextField(20);
     String defaultText = "default text";
     JMenuBar mb;
     JTextArea ta;
     JComboBox comboBox;
+    ExampleTableModel tableModel;
+    JTable table;
+    JButton update;
+    private static String title;
+    private static int initialRows = 10;
 
     public static void main(String[] args) {
-        String title = args[0];
+        title = (args.length > 0) ? args[0] : "Hello World";
+        if (args.length > 1) {
+            try {
+                initialRows = Integer.parseInt(args[1]);
+            } catch (NumberFormatException e) {
+                System.out.println("The second argument is not a valid integer. Using default value of 10.");
+            }
+        }
+
         BasicSwing myWindow = new BasicSwing(title);
         myWindow.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         myWindow.setSize(800, 350);
@@ -35,6 +51,7 @@ class BasicSwing extends JFrame implements WindowListener, ActionListener, ItemL
         JPanel taButtonPanel = new JPanel();
         JButton send = new JButton("Send1");
         JButton clear = new JButton("Clear2");
+        update = new JButton("Update");
 
         JLabel label = new JLabel();
         label.setText("Comment");
@@ -46,16 +63,19 @@ class BasicSwing extends JFrame implements WindowListener, ActionListener, ItemL
         ta.setFont(ta.getFont().deriveFont(24.0f));
         send.addActionListener(this);
         clear.addActionListener(this);
+        update.addActionListener(this);
         taButtonPanel.add(send);
         taButtonPanel.add(label);
         taButtonPanel.add(text);
         taButtonPanel.add(clear);
+        taButtonPanel.add(update);
 
-        ExampleTableModel tableModel = new ExampleTableModel();
-        tableModel.addRow(new Object[]{"Cell11", "Cell12", true});
-        tableModel.addRow(new Object[]{"Cell21", "Cell22", false});
-        tableModel.addRow(new Object[]{"Cell31", "Cell32", false});
-        JTable table = new JTable(tableModel);
+        tableModel = new ExampleTableModel();
+        for (int i = 0; i < initialRows; i++) {
+            tableModel.addRow(
+                    new Object[] { "Cell " + (i + 1), "Random" + random.nextInt(100), random.nextBoolean() });
+        }
+        table = new JTable(tableModel);
         table.setFillsViewportHeight(true);
 
         String comboBoxOptions[] = { "Hello", "World" };
@@ -126,6 +146,18 @@ class BasicSwing extends JFrame implements WindowListener, ActionListener, ItemL
             createFrame();
         } else if (objText == "Exit ok") {
             System.exit(0);
+        } else if (objText == "Update") {
+            ta.append(dtf.format(now) + " " + "updating\n");
+            try {
+                Thread.sleep(3000); // Sleep for 3 seconds (3000 milliseconds)
+            } catch (InterruptedException exc) {
+                exc.printStackTrace();
+            }
+            int rows = tableModel.getRowCount();
+            for (int i = rows; i < rows + 500; i++) {
+                tableModel.addRow(
+                        new Object[] { "Cell" + i, "Random" + random.nextInt(100), random.nextBoolean() });
+            }
         } else if (objText == "Exit cancel") {
             // TODO: close exit frame
         }
@@ -160,8 +192,7 @@ class BasicSwing extends JFrame implements WindowListener, ActionListener, ItemL
     public void windowDeactivated(WindowEvent arg0) {
     }
 
-    public void itemStateChanged(ItemEvent e)
-    {
+    public void itemStateChanged(ItemEvent e) {
         // if the state combobox is changed
         if (e.getSource() == this.comboBox) {
             ta.append(this.comboBox.getSelectedItem() + "\n");
@@ -172,7 +203,7 @@ class BasicSwing extends JFrame implements WindowListener, ActionListener, ItemL
         private int editableColumn = 2;
 
         public ExampleTableModel() {
-          super(new String[]{"Column1", "Column2", "Checkbox"}, 0);
+            super(new String[] { "Column1", "Column2", "Checkbox" }, 0);
         }
 
         @Override
@@ -202,8 +233,8 @@ class BasicSwing extends JFrame implements WindowListener, ActionListener, ItemL
         public void setValueAt(Object aValue, int row, int column) {
             if (aValue instanceof Boolean && column == this.editableColumn) {
                 System.out.println(aValue);
-                Vector rowData = (Vector)getDataVector().get(row);
-                rowData.set(this.editableColumn, (boolean)aValue);
+                Vector rowData = (Vector) getDataVector().get(row);
+                rowData.set(this.editableColumn, (boolean) aValue);
                 fireTableCellUpdated(row, column);
             }
         }
