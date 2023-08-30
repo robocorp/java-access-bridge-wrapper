@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "java-access-bridge-wrapper"
-version = "0.14.1"
+version = "1.0.0"
 description = "Python wrapper for the Windows Java Access Bridge"
 license = "Apache-2.0"
 readme = "README.md"
@@ -14,10 +14,9 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Operating System :: Microsoft :: Windows",
-    "Programming Language :: Python :: 3.6",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9"
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10"
 ]
 
 packages = [
@@ -25,15 +24,15 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.6.2"
-pywin32 = { version = ">=300,<304", platform = "win32", python = "!=3.8.1,!=3.7.6" }
+python = "^3.8.1"
+pywin32 = { version = ">=300,<307", platform = "win32", python = "!=3.8.1" }
 
 [tool.poetry.dev-dependencies]
-flake8 = "^3.9.2"
+flake8 = "^6.1.0"
 
 [tool.poetry.scripts]
 java_tree_reader = 'JABWrapper.context_tree_reader:main'
 
 [build-system]
-requires = ["poetry>=0.12"]
-build-backend = "poetry.masonry.api"
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
