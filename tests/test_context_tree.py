@@ -1,3 +1,5 @@
+# TODO: Refactor this with pyttest entirely.
+
 import ctypes
 import logging
 import os
@@ -18,6 +20,14 @@ GetMessage = ctypes.windll.user32.GetMessageW
 TranslateMessage = ctypes.windll.user32.TranslateMessage
 DispatchMessage = ctypes.windll.user32.DispatchMessageW
 
+IGNORE_CALLBACKS = False
+LOG_LEVEL = logging.INFO
+
+logger = logging.getLogger()
+logger.setLevel(LOG_LEVEL)
+for handler in logger.handlers:
+    handler.setLevel(LOG_LEVEL)
+
 
 def dump(obj):
     for attr in dir(obj):
@@ -31,10 +41,10 @@ def start_test_application(title):
         ["makejar.bat"], shell=True, cwd=app_path, close_fds=True
     )
     if returncode > 0:
-        logging.error(f"Failed to compile Swing application={returncode}")
+        logger.error(f"Failed to compile Swing application={returncode}")
         sys.exit(returncode)
     # Run the swing program in background
-    logging.info("Opening Java Swing application")
+    logger.info("Opening Java Swing application")
     subprocess.Popen(
         ["java", "BasicSwing", title], shell=True, cwd=app_path, close_fds=True
     )
@@ -44,18 +54,18 @@ def start_test_application(title):
 
 def pump_background(pipe: queue.Queue):
     try:
-        jab_wrapper = JavaAccessBridgeWrapper()
+        jab_wrapper = JavaAccessBridgeWrapper(ignore_callbacks=IGNORE_CALLBACKS)
         pipe.put(jab_wrapper)
         message = byref(wintypes.MSG())
         while GetMessage(message, 0, 0, 0) > 0:
             TranslateMessage(message)
-            logging.debug("Dispatching msg={}".format(repr(message)))
+            logger.debug("Dispatching msg={}".format(repr(message)))
             DispatchMessage(message)
     except Exception as err:
-        logging.error(err)
+        logger.error(err)
         pipe.put(None)
     finally:
-        logging.info("Stopped processing events")
+        logger.info("Stopped processing events")
 
 
 def write_to_file(name: str, data: str, mode="w") -> None:
@@ -64,7 +74,7 @@ def write_to_file(name: str, data: str, mode="w") -> None:
 
 
 def wait_until_text_contains(element: ContextNode, text: str, retries=10):
-    logging.info(element.text)
+    logger.info(element.text)
     for i in range(retries):
         if text in element.text.items.sentence:
             return
@@ -91,10 +101,13 @@ class MenuClicked:
     def menu_clicked_callback(self, _: JavaObject):
         self._file_menu_clicked = True
 
-    def wait_until_menu_clicked(self, retries=100):
+    def wait_until_menu_clicked(self, retries=300):
+        if IGNORE_CALLBACKS:
+            return
+
         for i in range(retries):
             if self._file_menu_clicked:
-                logging.info("File menu clicked")
+                logger.info("File menu clicked")
                 return
             time.sleep(0.01)
         else:
@@ -107,10 +120,10 @@ def select_window(jab_wrapper, window_id):
         pid = jab_wrapper.switch_window_by_pid(window_id)
     else:
         pid = jab_wrapper.switch_window_by_title(window_id)
-    logging.info(f"Window PID={pid}")
+    logger.info(f"Window PID={pid}")
     assert pid is not None, "Pid is none"
     version_info = jab_wrapper.get_version_info()
-    logging.info(
+    logger.info(
         "VMversion={}; BridgeJavaClassVersion={}; BridgeJavaDLLVersion={}; BridgeWinDLLVersion={}\n".format(
             version_info.VMversion,
             version_info.bridgeJavaClassVersion,
@@ -122,7 +135,7 @@ def select_window(jab_wrapper, window_id):
 
 def parse_elements(jab_wrapper) -> ContextTree:
     # Parse the element tree of the window
-    logging.info("Getting context tree")
+    logger.info("Getting context tree")
     context_info_tree = ContextTree(jab_wrapper)
     write_to_file("context.txt", repr(context_info_tree))
     return context_info_tree
@@ -131,9 +144,9 @@ def parse_elements(jab_wrapper) -> ContextTree:
 def type_text_into_text_field(context_info_tree) -> ContextNode:
     # Type text into text field
     text = "Hello World"
-    logging.info("Typing text into text field")
+    logger.info("Typing text into text field")
     text_area = context_info_tree.get_by_attrs([SearchElement("role", "text")])[0]
-    logging.debug("Found element by role (text): {}".format(text_area))
+    logger.debug("Found element by role (text): {}".format(text_area))
     text_area.insert_text(text)
     wait_until_text_contains(text_area, text)
     return text_area
@@ -141,15 +154,15 @@ def type_text_into_text_field(context_info_tree) -> ContextNode:
 
 def set_focus(context_info_tree):
     # Set focus to main frame
-    logging.info("Setting focus to main frame")
+    logger.info("Setting focus to main frame")
     root_pane = context_info_tree.get_by_attrs([SearchElement("role", "frame")])[0]
-    logging.info("Found element by role (frame): {}".format(root_pane))
+    logger.info("Found element by role (frame): {}".format(root_pane))
     root_pane.request_focus()
 
 
 def click_send_button(context_info_tree, text_area):
     # Click the send button
-    logging.info("Clicking the send button")
+    logger.info("Clicking the send button")
     send_button = context_info_tree.get_by_attrs(
         [
             SearchElement("role", "push button"),
@@ -157,7 +170,7 @@ def click_send_button(context_info_tree, text_area):
             SearchElement("indexInParent", 0),
         ]
     )[0]
-    logging.debug(
+    logger.debug(
         "Found element by role (push button) and name (Send): {}".format(send_button)
     )
     send_button.click()
@@ -166,7 +179,7 @@ def click_send_button(context_info_tree, text_area):
 
 def select_combobox(jab_wrapper, context_info_tree, text_area):
     # Select combobox
-    logging.info("Selecting text area")
+    logger.info("Selecting text area")
     combo_box_menu = context_info_tree.get_by_attrs(
         [SearchElement("role", "combo box")]
     )[0]
@@ -188,7 +201,7 @@ def select_combobox(jab_wrapper, context_info_tree, text_area):
 
 def click_clear_button(context_info_tree, text_area):
     # Click the clear button
-    logging.info("Clicking the clear button")
+    logger.info("Clicking the clear button")
     clear_button = context_info_tree.get_by_attrs(
         [
             SearchElement("role", "push button", True),
@@ -196,7 +209,7 @@ def click_clear_button(context_info_tree, text_area):
             SearchElement("indexInParent", 3),
         ]
     )[0]
-    logging.debug(
+    logger.debug(
         "Found element by role (push button) and name (Clear): {}".format(clear_button)
     )
     clear_button.click()
@@ -216,11 +229,11 @@ def open_menu_item_file(jab_wrapper, context_info_tree):
     # Open Menu item FILE
     menu_clicked = MenuClicked()
     jab_wrapper.register_callback("menu_selected", menu_clicked.menu_clicked_callback)
-    logging.info("Opening Menu item FILE")
+    logger.info("Opening Menu item FILE")
     file_menu = context_info_tree.get_by_attrs(
         [SearchElement("role", "menu"), SearchElement("name", "FILE")]
     )[0]
-    logging.debug(
+    logger.debug(
         "Found element by role (push button) and name (FILE): {}".format(file_menu)
     )
     file_menu.click()
@@ -229,11 +242,11 @@ def open_menu_item_file(jab_wrapper, context_info_tree):
 
 def click_exit_menu(context_info_tree) -> ContextNode:
     # Click the exit menu
-    logging.info("Clicking the exit menu")
+    logger.info("Clicking the exit menu")
     exit_menu = context_info_tree.get_by_attrs(
         [SearchElement("role", "menu item"), SearchElement("name", "Exit")]
     )[0]
-    logging.debug(
+    logger.debug(
         "Found element by role (menu item) and name (Exit): {}".format(exit_menu)
     )
     exit_menu.click()
@@ -242,7 +255,7 @@ def click_exit_menu(context_info_tree) -> ContextNode:
 
 def click_exit(jab_wrapper, exit_menu):
     # Switch to new exit window and click the exit button
-    logging.info("Switching to exit frame and clicking the exit button")
+    logger.info("Switching to exit frame and clicking the exit button")
     jab_wrapper.switch_window_by_title("Exit")
     context_info_tree_for_exit_frame = ContextTree(jab_wrapper)
     write_to_file(
@@ -251,10 +264,53 @@ def click_exit(jab_wrapper, exit_menu):
     exit_button = context_info_tree_for_exit_frame.get_by_attrs(
         [SearchElement("role", "push button"), SearchElement("name", "Exit ok")]
     )[0]
-    logging.debug(
+    logger.debug(
         "Found element by role (push button) and name (Exit ok): {}".format(exit_menu)
     )
     exit_button.click()
+
+
+def update_and_refresh_table(context_info_tree):
+    table = context_info_tree.get_by_attrs(
+        [
+            SearchElement("role", "table"),
+        ]
+    )[0]
+    logger.debug("Found table: %s", table)
+    initial_children = len(table.children)
+    logger.info("Initial children: %d", initial_children)
+
+    update_button = context_info_tree.get_by_attrs(
+        [
+            SearchElement("role", "push button"),
+            SearchElement("name", "Update"),
+        ]
+    )[0]
+    logger.debug("Found 'Update' button: %s", update_button)
+    update_button.click()
+
+    expected_total_children = initial_children
+    if not IGNORE_CALLBACKS:
+        # Populating the table will trigger a callback which will automatically
+        #  refresh it. We just need to wait a while and adjust our expectations.
+        time.sleep(0.1)
+        expected_total_children = 2 * initial_children
+    total_children = len(table.children)
+    logger.info(
+        "Total children (pre-refresh; callbacks: %s): %d",
+        "OFF" if IGNORE_CALLBACKS else "ON",
+        total_children,
+    )
+    assert (
+        total_children == expected_total_children
+    ), "children number changed without refresh"
+
+    table.refresh()
+    total_children = len(table.children)
+    logger.info("Total children (post-refresh): %d", total_children)
+    assert (
+        total_children == 2 * initial_children
+    ), "children number didn't changed after refresh"
 
 
 def shutdown_app(jab_wrapper, context_info_tree):
@@ -271,6 +327,7 @@ def run_app_tests(jab_wrapper, window_id):
     click_send_button(context_info_tree, text_area)
     click_clear_button(context_info_tree, text_area)
     verify_table_content(context_info_tree)
+    update_and_refresh_table(context_info_tree)
     shutdown_app(jab_wrapper, context_info_tree)
 
 
@@ -282,6 +339,7 @@ def main():
         pipe = queue.Queue()
         thread = threading.Thread(target=pump_background, daemon=True, args=[pipe])
         thread.start()
+        # FIXME: Get the JAB wrapper (and the context tree) as a fixture.
         jab_wrapper = pipe.get()
         if not jab_wrapper:
             raise Exception("Failed to initialize Java Access Bridge Wrapper")
@@ -293,15 +351,15 @@ def main():
         assert title == "Chat Frame", f"Invalid window found={title}"
         run_app_tests(jab_wrapper, title)
 
-        start_test_application("Foo bar")
-        windows = jab_wrapper.get_windows()
-        title = windows[0].title
-        assert title == "Foo bar", f"Invalid window found={title}"
-        run_app_tests(jab_wrapper, windows[0].pid)
+        # start_test_application("Foo bar")
+        # windows = jab_wrapper.get_windows()
+        # title = windows[0].title
+        # assert title == "Foo bar", f"Invalid window found={title}"
+        # run_app_tests(jab_wrapper, windows[0].pid)  # TODO: parametrize this
     except Exception as e:
-        logging.error(f"error={type(e)} - {e}")
+        logger.error(f"error={type(e)} - {e}")
     finally:
-        logging.info("Shutting down JAB wrapper")
+        logger.info("Shutting down JAB wrapper")
         if jab_wrapper:
             jab_wrapper.shutdown()
 

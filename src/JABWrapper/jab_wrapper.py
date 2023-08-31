@@ -1,100 +1,115 @@
-import os
-import sys
-import re
 import logging
-
-import win32process
-
+import os
+import re
+import sys
 from ctypes import (
     CFUNCTYPE,
+    POINTER,
+    WINFUNCTYPE,
+    WinError,
+    byref,
+    c_int,
     c_long,
     c_short,
     c_void_p,
     c_wchar,
     c_wchar_p,
-    wintypes,
-    POINTER,
-    byref,
-    windll,
-    c_int,
     cdll,
-    WINFUNCTYPE,
-    WinError,
-    create_unicode_buffer
+    create_unicode_buffer,
+    windll,
+    wintypes,
 )
+from dataclasses import dataclass
+from typing import Callable, List, Optional, Tuple
 
-from typing import Callable, List, Tuple
+import win32process
 
 from JABWrapper.jab_types import (
+    MAX_STRING_SIZE,
+    SHORT_STRING_SIZE,
     AccessBridgeVersionInfo,
     AccessibleActions,
     AccessibleActionsToDo,
+    AccessibleContextInfo,
     AccessibleHyperlinkInfo,
     AccessibleHypertextInfo,
     AccessibleIcons,
     AccessibleKeyBindings,
     AccessibleRelationSetInfo,
     AccessibleTableCellInfo,
-    AccessibleTextAttributesInfo,
     AccessibleTableInfo,
+    AccessibleTextAttributesInfo,
+    AccessibleTextInfo,
     AccessibleTextItemsInfo,
     AccessibleTextRectInfo,
-    JavaObject,
-    AccessibleContextInfo,
-    AccessibleTextInfo,
     AccessibleTextSelectionInfo,
+    JavaObject,
     VisibleChildrenInfo,
-    MAX_STRING_SIZE,
-    SHORT_STRING_SIZE
 )
 from JABWrapper.utils import ReleaseEvent
 
-from dataclasses import dataclass
-
-
-log_path = os.path.join(os.path.abspath(os.getenv("ROBOT_ARTIFACTS", "")), "jab_wrapper.log")
+log_path = os.path.join(
+    os.path.abspath(os.getenv("ROBOT_ARTIFACTS", "")), "jab_wrapper.log"
+)
 if not os.path.exists(os.path.dirname(log_path)):
     os.mkdir(os.path.dirname(log_path))
 logging_file_handler = logging.FileHandler(log_path, "w", "utf-8")
-logging_file_handler.setFormatter(logging.Formatter("%(asctime)s [%(threadName)s] {%(filename)s:%(lineno)d} [%(levelname)s] %(message)s"))
+logging_file_handler.setFormatter(
+    logging.Formatter(
+        "%(asctime)s [%(threadName)s] {%(filename)s:%(lineno)d} [%(levelname)s] %(message)s"
+    )
+)
 logging_file_handler.setLevel(logging.DEBUG)
 
 logging_stream_handler = logging.StreamHandler(sys.stdout)
-logging_stream_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] {%(filename)s:%(lineno)d} %(message)s"))
+logging_stream_handler.setFormatter(
+    logging.Formatter(
+        "%(asctime)s [%(levelname)s] {%(filename)s:%(lineno)d} %(message)s"
+    )
+)
 logging_stream_handler.setLevel(logging.INFO)
 
 logging.basicConfig(
-    level=logging.DEBUG,
-    handlers=[logging_file_handler, logging_stream_handler]
+    level=logging.DEBUG, handlers=[logging_file_handler, logging_stream_handler]
 )
 
 
 # https://stackoverflow.com/questions/21175922/enumerating-windows-trough-ctypes-in-python
 WNDENUMPROC = WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
 user32 = windll.user32
-user32.EnumWindows.argtypes = [
-    WNDENUMPROC,
-    wintypes.LPARAM]
-user32.GetWindowTextLengthW.argtypes = [
-    wintypes.HWND]
-user32.GetWindowTextW.argtypes = [
-    wintypes.HWND,
-    wintypes.LPWSTR,
-    c_int]
+user32.EnumWindows.argtypes = [WNDENUMPROC, wintypes.LPARAM]
+user32.GetWindowTextLengthW.argtypes = [wintypes.HWND]
+user32.GetWindowTextW.argtypes = [wintypes.HWND, wintypes.LPWSTR, c_int]
 
 
-PropertyChangeFP = CFUNCTYPE(None, c_long, JavaObject, JavaObject, c_wchar_p, c_wchar_p, c_wchar_p)
-PropertyNameChangeFP = CFUNCTYPE(None, c_long, JavaObject, JavaObject, c_wchar_p, c_wchar_p)
-PropertyDescriptionChangeFP = CFUNCTYPE(None, c_long, JavaObject, JavaObject, c_wchar_p, c_wchar_p)
-PropertStateChangeFP = CFUNCTYPE(None, c_long, JavaObject, JavaObject, c_wchar_p, c_wchar_p)
-PropertyValueChangeFP = CFUNCTYPE(None, c_long, JavaObject, JavaObject, c_wchar_p, c_wchar_p)
+PropertyChangeFP = CFUNCTYPE(
+    None, c_long, JavaObject, JavaObject, c_wchar_p, c_wchar_p, c_wchar_p
+)
+PropertyNameChangeFP = CFUNCTYPE(
+    None, c_long, JavaObject, JavaObject, c_wchar_p, c_wchar_p
+)
+PropertyDescriptionChangeFP = CFUNCTYPE(
+    None, c_long, JavaObject, JavaObject, c_wchar_p, c_wchar_p
+)
+PropertStateChangeFP = CFUNCTYPE(
+    None, c_long, JavaObject, JavaObject, c_wchar_p, c_wchar_p
+)
+PropertyValueChangeFP = CFUNCTYPE(
+    None, c_long, JavaObject, JavaObject, c_wchar_p, c_wchar_p
+)
 PropertySelectionChangeFP = CFUNCTYPE(None, c_long, JavaObject, JavaObject)
 PropertyTextChangedFP = CFUNCTYPE(None, c_long, JavaObject, JavaObject)
 PropertyCaretChangeFP = CFUNCTYPE(None, c_long, JavaObject, JavaObject, c_int, c_int)
 PropertyVisibleDataChangeFP = CFUNCTYPE(None, c_long, JavaObject, JavaObject)
-PropertyChildChangeFP = CFUNCTYPE(None, c_long, JavaObject, JavaObject, JavaObject, JavaObject)
-PropertyActiveDescendentChangeFP = CFUNCTYPE(None, c_long, JavaObject, JavaObject, JavaObject, JavaObject)
-PropertyTableModelChangeFP = CFUNCTYPE(None, c_long, JavaObject, JavaObject, c_wchar_p, c_wchar_p)
+PropertyChildChangeFP = CFUNCTYPE(
+    None, c_long, JavaObject, JavaObject, JavaObject, JavaObject
+)
+PropertyActiveDescendentChangeFP = CFUNCTYPE(
+    None, c_long, JavaObject, JavaObject, JavaObject, JavaObject
+)
+PropertyTableModelChangeFP = CFUNCTYPE(
+    None, c_long, JavaObject, JavaObject, c_wchar_p, c_wchar_p
+)
 FocusGainedFP = CFUNCTYPE(None, c_long, JavaObject, JavaObject)
 FocusLostFP = CFUNCTYPE(None, c_long, JavaObject, JavaObject)
 CaretUpdateFP = CFUNCTYPE(None, c_long, JavaObject, JavaObject)
@@ -161,7 +176,9 @@ class Enumerator:
         if isJava:
             _, found_pid = win32process.GetWindowThreadProcessId(hwnd)
             java_window = JavaWindow(found_pid, hwnd, title)
-            logging.debug(f"found window title={java_window.title} pid={java_window.pid} hwnd={java_window.hwnd}")
+            logging.debug(
+                f"found window title={java_window.title} pid={java_window.pid} hwnd={java_window.hwnd}"
+            )
             self._windows.append(java_window)
 
         return True
@@ -177,9 +194,15 @@ class JavaAccessBridgeWrapper:
 
         if "RC_JAVA_ACCESS_BRIDGE_DLL" not in os.environ:
             raise OSError("Environment variable: RC_JAVA_ACCESS_BRIDGE_DLL not found")
-        if not os.path.isfile(os.path.normpath(os.environ['RC_JAVA_ACCESS_BRIDGE_DLL'])):
-            raise FileNotFoundError(f"File not found: {os.environ['RC_JAVA_ACCESS_BRIDGE_DLL']}")
-        self._wab: cdll = cdll.LoadLibrary(os.path.normpath(os.environ['RC_JAVA_ACCESS_BRIDGE_DLL']))
+        if not os.path.isfile(
+            os.path.normpath(os.environ["RC_JAVA_ACCESS_BRIDGE_DLL"])
+        ):
+            raise FileNotFoundError(
+                f"File not found: {os.environ['RC_JAVA_ACCESS_BRIDGE_DLL']}"
+            )
+        self._wab: cdll = cdll.LoadLibrary(
+            os.path.normpath(os.environ["RC_JAVA_ACCESS_BRIDGE_DLL"])
+        )
         logging.debug("WindowsAccessBridge loaded succesfully")
         self._define_functions()
         if not self.ignore_callbacks:
@@ -187,7 +210,7 @@ class JavaAccessBridgeWrapper:
             self._set_callbacks()
         self._wab.Windows_run()
 
-        self._hwnd: wintypes.HWND = None
+        self._hwnd: Optional[wintypes.HWND] = None
         self._vmID = c_long()
         self.context = JavaObject()
 
@@ -220,17 +243,31 @@ class JavaAccessBridgeWrapper:
         self._wab.isSameObject.argtypes = [c_long, JavaObject, JavaObject]
         self._wab.isSameObject.restypes = wintypes.BOOL
         # BOOL GetAccessibleContextFromHWND(HWND window, long *vmID, AccessibleContext *context)
-        self._wab.getAccessibleContextFromHWND.argtypes = [wintypes.HWND, POINTER(c_long), POINTER(JavaObject)]
+        self._wab.getAccessibleContextFromHWND.argtypes = [
+            wintypes.HWND,
+            POINTER(c_long),
+            POINTER(JavaObject),
+        ]
         self._wab.getAccessibleContextFromHWND.restype = wintypes.BOOL
         # HWND getHWNDFromAccessibleContext(long vmID, AccessibleContext context)
         self._wab.getHWNDFromAccessibleContext.argtypes = [c_long, JavaObject]
         self._wab.getHWNDFromAccessibleContext.restype = wintypes.HWND
         # BOOL getAccessibleContextAt(long vmID, AccessibleContext parent, int x, int y, AccessibleContext *context)
-        self._wab.getAccessibleContextAt.argtypes = [c_long, JavaObject, c_int, c_int, POINTER(JavaObject)]
+        self._wab.getAccessibleContextAt.argtypes = [
+            c_long,
+            JavaObject,
+            c_int,
+            c_int,
+            POINTER(JavaObject),
+        ]
         self._wab.getAccessibleContextAt.restype = wintypes.BOOL
         # TODO: getAccessibleContextWithFocus
         # BOOL getAccessibleContextInfo(long vmID, AccessibleContext context, AccessibleContextInfo *info)
-        self._wab.getAccessibleContextInfo.argtypes = [c_long, JavaObject, POINTER(AccessibleContextInfo)]
+        self._wab.getAccessibleContextInfo.argtypes = [
+            c_long,
+            JavaObject,
+            POINTER(AccessibleContextInfo),
+        ]
         self._wab.getAccessibleContextInfo.restype = wintypes.BOOL
         # AccessibleContext getAccessibleChildFromContext(long vmID, AccessibleContext context, int integer)
         self._wab.getAccessibleChildFromContext.argtypes = [c_long, JavaObject, c_int]
@@ -241,22 +278,48 @@ class JavaAccessBridgeWrapper:
 
         # Accessible table
         # BOOL getAccessibleTableInfo(long vmID, AccessibleContext context, AccessibleTableInfo *tableInfo)
-        self._wab.getAccessibleTableInfo.argtypes = [c_long, JavaObject, POINTER(AccessibleTableInfo)]
+        self._wab.getAccessibleTableInfo.argtypes = [
+            c_long,
+            JavaObject,
+            POINTER(AccessibleTableInfo),
+        ]
         self._wab.getAccessibleTableInfo.restype = wintypes.BOOL
         # BOOL getAccessibleTableCellInfo(long vmID, AccessibleTable accessibleTable, int row, int column, AccessibleTableCellInfo *tableCellInfo)
-        self._wab.getAccessibleTableCellInfo.argtypes = [c_long, JavaObject, c_int, c_int, POINTER(AccessibleTableCellInfo)]
+        self._wab.getAccessibleTableCellInfo.argtypes = [
+            c_long,
+            JavaObject,
+            c_int,
+            c_int,
+            POINTER(AccessibleTableCellInfo),
+        ]
         self._wab.getAccessibleTableCellInfo.restype = wintypes.BOOL
         # BOOL getAccessibleTableRowHeader(long vmID, AccessibleContext context, AccessibleTableInfo *tableInfo)
-        self._wab.getAccessibleTableRowHeader.argtypes = [c_long, JavaObject, POINTER(AccessibleTableInfo)]
+        self._wab.getAccessibleTableRowHeader.argtypes = [
+            c_long,
+            JavaObject,
+            POINTER(AccessibleTableInfo),
+        ]
         self._wab.getAccessibleTableRowHeader.restype = wintypes.BOOL
         # BOOL getAccessibleTableColumnHeader(long vmID, AccessibleContext context, AccessibleTableInfo *tableInfo)
-        self._wab.getAccessibleTableColumnHeader.argtypes = [c_long, JavaObject, POINTER(AccessibleTableInfo)]
+        self._wab.getAccessibleTableColumnHeader.argtypes = [
+            c_long,
+            JavaObject,
+            POINTER(AccessibleTableInfo),
+        ]
         self._wab.getAccessibleTableColumnHeader.restype = wintypes.BOOL
         # JavaObject getAccessibleTableRowDescription(long vmID, AccessibleContext context, int row)
-        self._wab.getAccessibleTableRowDescription.argtypes = [c_long, JavaObject, c_int]
+        self._wab.getAccessibleTableRowDescription.argtypes = [
+            c_long,
+            JavaObject,
+            c_int,
+        ]
         self._wab.getAccessibleTableRowDescription.restype = JavaObject
         # JavaObject getAccessibleTableColumnDescription(long vmID, AccessibleContext context, int row)
-        self._wab.getAccessibleTableColumnDescription.argtypes = [c_long, JavaObject, c_int]
+        self._wab.getAccessibleTableColumnDescription.argtypes = [
+            c_long,
+            JavaObject,
+            c_int,
+        ]
         self._wab.getAccessibleTableColumnDescription.restype = JavaObject
         # int getAccessibleTableRowSelectionCount(long vmID, AccessibleTable table)
         self._wab.getAccessibleTableRowSelectionCount.argtypes = [c_long, JavaObject]
@@ -286,103 +349,218 @@ class JavaAccessBridgeWrapper:
 
         # AccessibleRelationSet
         # BOOL getAccessibleRelationSet(long vmID, AccessibleContext accessibleContext, AccessibleRelationSetInfo *relationSetInfo)
-        self._wab.getAccessibleRelationSet.argtypes = [c_long, JavaObject, POINTER(AccessibleRelationSetInfo)]
+        self._wab.getAccessibleRelationSet.argtypes = [
+            c_long,
+            JavaObject,
+            POINTER(AccessibleRelationSetInfo),
+        ]
         self._wab.getAccessibleRelationSet.restype = wintypes.BOOL
 
         # AccessibleHypertext
         # BOOL getAccessibleHypertext(long vmID, AccessibleContext accessibleContext, AccessibleHypertextInfo *hypertextInfo)
-        self._wab.getAccessibleHypertext.argtypes = [c_long, JavaObject, POINTER(AccessibleHypertextInfo)]
+        self._wab.getAccessibleHypertext.argtypes = [
+            c_long,
+            JavaObject,
+            POINTER(AccessibleHypertextInfo),
+        ]
         self._wab.getAccessibleHypertext.restype = wintypes.BOOL
         # BOOL activateAccessibleHyperlink(long vmID, AccessibleContext accessibleContext, AccessibleHyperlink accessibleHyperlink)
-        self._wab.activateAccessibleHyperlink.argtypes = [c_long, JavaObject, JavaObject]
+        self._wab.activateAccessibleHyperlink.argtypes = [
+            c_long,
+            JavaObject,
+            JavaObject,
+        ]
         self._wab.activateAccessibleHyperlink.restype = wintypes.BOOL
         # BOOL getAccessibleHyperlinkCount(long vmID, AccessibleContext accessibleContext)
         self._wab.getAccessibleHyperlinkCount.argtypes = [c_long, JavaObject]
         self._wab.getAccessibleHyperlinkCount.restype = c_int
         # BOOL getAccessibleHypertextExt(long vmID, AccessibleContext accessibleContext, int nStartIndex, AccessibleHypertextInfo *hypertextInfo)
-        self._wab.getAccessibleHypertextExt.argtypes = [c_long, JavaObject, c_int, POINTER(AccessibleHypertextInfo)]
+        self._wab.getAccessibleHypertextExt.argtypes = [
+            c_long,
+            JavaObject,
+            c_int,
+            POINTER(AccessibleHypertextInfo),
+        ]
         self._wab.getAccessibleHypertextExt.restype = wintypes.BOOL
         # BOOL getAccessibleHypertextLinkIndex(long vmID, AccessibleContext accessibleContext, int charIndex, int *linkIndex)
         self._wab.getAccessibleHypertextLinkIndex.argtypes = [c_long, JavaObject, c_int]
         self._wab.getAccessibleHypertextLinkIndex.restype = c_int
         # BOOL getAccessibleHyperlink(long vmID, AccessibleContext accessibleContext, int index, AccessibleHyperlinkInfo *hyperlinkInfo)
-        self._wab.getAccessibleHyperlink.argtypes = [c_long, JavaObject, c_int, POINTER(AccessibleHyperlinkInfo)]
+        self._wab.getAccessibleHyperlink.argtypes = [
+            c_long,
+            JavaObject,
+            c_int,
+            POINTER(AccessibleHyperlinkInfo),
+        ]
         self._wab.getAccessibleHyperlink.restype = wintypes.BOOL
 
         # Accessible KeyBindings, Icons and Actions
         # BOOL getAccessibleKeyBindings(long vmID, AccessibleContext context, AccessibleKeyBindings *bindings)
-        self._wab.getAccessibleKeyBindings.argtypes = [c_long, JavaObject, POINTER(AccessibleKeyBindings)]
+        self._wab.getAccessibleKeyBindings.argtypes = [
+            c_long,
+            JavaObject,
+            POINTER(AccessibleKeyBindings),
+        ]
         self._wab.getAccessibleKeyBindings.restypes = wintypes.BOOL
         # BOOL getAccessibleIcons(long vmID, AccessibleContext accessibleContext, AccessibleIcons *icons)
-        self._wab.getAccessibleIcons.argtypes = [c_long, JavaObject, POINTER(AccessibleIcons)]
+        self._wab.getAccessibleIcons.argtypes = [
+            c_long,
+            JavaObject,
+            POINTER(AccessibleIcons),
+        ]
         self._wab.getAccessibleIcons.restype = wintypes.BOOL
         # BOOL getAccessibleActions(long vmID, AccessibleContext context, AccessibleActions *actions)
-        self._wab.getAccessibleActions.argtypes = [c_long, JavaObject, POINTER(AccessibleActions)]
+        self._wab.getAccessibleActions.argtypes = [
+            c_long,
+            JavaObject,
+            POINTER(AccessibleActions),
+        ]
         self._wab.getAccessibleActions.restypes = wintypes.BOOL
         # BOOL doAccessibleActions(long vmID, AccessibleContext context, AccessibleActionsToDo actionsToDo, bool *result, int *failure_index)
-        self._wab.doAccessibleActions.argtypes = [c_long, JavaObject, AccessibleActionsToDo, POINTER(c_int)]
+        self._wab.doAccessibleActions.argtypes = [
+            c_long,
+            JavaObject,
+            AccessibleActionsToDo,
+            POINTER(c_int),
+        ]
         self._wab.doAccessibleActions.restypes = wintypes.BOOL
 
         # AccessibleText
         # AccessibleTextInfo GetAccessibleTextInfo(long vmID, AccessibleContext context, AccessibleTextInfo *info, int x, int y)
-        self._wab.getAccessibleTextInfo.argtypes = [c_long, JavaObject, POINTER(AccessibleTextInfo), c_int, c_int]
+        self._wab.getAccessibleTextInfo.argtypes = [
+            c_long,
+            JavaObject,
+            POINTER(AccessibleTextInfo),
+            c_int,
+            c_int,
+        ]
         self._wab.getAccessibleTextInfo.restype = wintypes.BOOL
         # AccesibleTextItems GetAccessibleTextItems(long vmID, AccessibleContext context, AccesibleTextItems *items, int index)
-        self._wab.getAccessibleTextItems.argtypes = [c_long, JavaObject, POINTER(AccessibleTextItemsInfo), c_int]
+        self._wab.getAccessibleTextItems.argtypes = [
+            c_long,
+            JavaObject,
+            POINTER(AccessibleTextItemsInfo),
+            c_int,
+        ]
         self._wab.getAccessibleTextItems.restype = wintypes.BOOL
         # BOOL GetAccessibleTextSelectionInfo(long vmID, AccessibleContext context, AccessibleTextSelectionInfo *textSelection)
-        self._wab.getAccessibleTextSelectionInfo.argtypes = [c_long, JavaObject, POINTER(AccessibleTextSelectionInfo)]
+        self._wab.getAccessibleTextSelectionInfo.argtypes = [
+            c_long,
+            JavaObject,
+            POINTER(AccessibleTextSelectionInfo),
+        ]
         self._wab.getAccessibleTextSelectionInfo.restype = wintypes.BOOL
         # BOOL getAccessibleTextAttributes(long vmID, AccessibleContext context, int index, AccessibleTextAttributesInfo *attributesInfo)
-        self._wab.getAccessibleTextAttributes.argtypes = [c_long, JavaObject, c_int, POINTER(AccessibleTextAttributesInfo)]
+        self._wab.getAccessibleTextAttributes.argtypes = [
+            c_long,
+            JavaObject,
+            c_int,
+            POINTER(AccessibleTextAttributesInfo),
+        ]
         self._wab.getAccessibleTextAttributes.restype = wintypes.BOOL
         # BOOL getAccessibleTextRect(long vmID, AccessibleContext context, AccessibleTextRectInfo *rectInfo, int index)
-        self._wab.getAccessibleTextRect.argtypes = [c_long, JavaObject, POINTER(AccessibleTextRectInfo), c_int]
+        self._wab.getAccessibleTextRect.argtypes = [
+            c_long,
+            JavaObject,
+            POINTER(AccessibleTextRectInfo),
+            c_int,
+        ]
         self._wab.getAccessibleTextRect.restype = wintypes.BOOL
         # BOOL getAccessibleTextLineBounds(long vmID, AccessibleContext context, int index, int *startIndex, int *endIndex)
-        self._wab.getAccessibleTextLineBounds.argtypes = [c_long, JavaObject, c_int, POINTER(c_int), POINTER(c_int)]
+        self._wab.getAccessibleTextLineBounds.argtypes = [
+            c_long,
+            JavaObject,
+            c_int,
+            POINTER(c_int),
+            POINTER(c_int),
+        ]
         self._wab.getAccessibleTextLineBounds.restype = wintypes.BOOL
         # BOOL getAccessibleTextRange(long vmID, AccessibleContext context, int start, int end, c_wchar_p *text, short len)
-        self._wab.getAccessibleTextRange.argtypes = [c_long, JavaObject, c_int, c_int, c_wchar_p, c_short]
+        self._wab.getAccessibleTextRange.argtypes = [
+            c_long,
+            JavaObject,
+            c_int,
+            c_int,
+            c_wchar_p,
+            c_short,
+        ]
         self._wab.getAccessibleTextRange.restype = wintypes.BOOL
 
         # AccessibleValue
         # BOOL getCurrentAccessibleValueFromContext(long vmID, AccessibleContext context, c_wchar *value, short len)
-        self._wab.getCurrentAccessibleValueFromContext.argtypes = [c_long, JavaObject, c_wchar_p, c_short]
+        self._wab.getCurrentAccessibleValueFromContext.argtypes = [
+            c_long,
+            JavaObject,
+            c_wchar_p,
+            c_short,
+        ]
         self._wab.getCurrentAccessibleValueFromContext.restype = wintypes.BOOL
         # BOOL getMaximumAccessibleValueFromContext(long vmID, AccessibleContext context, c_wchar *value, short len)
-        self._wab.getMaximumAccessibleValueFromContext.argtypes = [c_long, JavaObject, c_wchar_p, c_short]
+        self._wab.getMaximumAccessibleValueFromContext.argtypes = [
+            c_long,
+            JavaObject,
+            c_wchar_p,
+            c_short,
+        ]
         self._wab.getMaximumAccessibleValueFromContext.restype = wintypes.BOOL
         # BOOL getMinimumAccessibleValueFromContext(long vmID, AccessibleContext context, c_wchar *value, short len)
-        self._wab.getMinimumAccessibleValueFromContext.argtypes = [c_long, JavaObject, c_wchar_p, c_short]
+        self._wab.getMinimumAccessibleValueFromContext.argtypes = [
+            c_long,
+            JavaObject,
+            c_wchar_p,
+            c_short,
+        ]
         self._wab.getMinimumAccessibleValueFromContext.restype = wintypes.BOOL
 
         # AccessibleSelection
         # void addAccessibleSelectionFromContext(long vmID, AccessibleContext context, int index)
-        self._wab.addAccessibleSelectionFromContext.argtypes = [c_long, JavaObject, c_int]
+        self._wab.addAccessibleSelectionFromContext.argtypes = [
+            c_long,
+            JavaObject,
+            c_int,
+        ]
         self._wab.addAccessibleSelectionFromContext.restype = None
         # void clearAccessibleSelectionFromContext(long vmID, AccessibleContext context)
         self._wab.clearAccessibleSelectionFromContext.argtypes = [c_long, JavaObject]
         self._wab.clearAccessibleSelectionFromContext.restype = None
         # JavaObject getAccessibleSelectionFromContext(long vmID, AccessibleContext context, int index)
-        self._wab.getAccessibleSelectionFromContext.argtypes = [c_long, JavaObject, c_int]
+        self._wab.getAccessibleSelectionFromContext.argtypes = [
+            c_long,
+            JavaObject,
+            c_int,
+        ]
         self._wab.getAccessibleSelectionFromContext.restype = JavaObject
         # int getAccessibleSelectionCountFromContext(long vmID, AccessibleContext context)
         self._wab.getAccessibleSelectionCountFromContext.argtypes = [c_long, JavaObject]
         self._wab.getAccessibleSelectionCountFromContext.restype = c_int
         # BOOL isAccessibleChildSelectedFromContext(long vmID, AccessibleContext context, int index)
-        self._wab.isAccessibleChildSelectedFromContext.argtypes = [c_long, JavaObject, c_int]
+        self._wab.isAccessibleChildSelectedFromContext.argtypes = [
+            c_long,
+            JavaObject,
+            c_int,
+        ]
         self._wab.isAccessibleChildSelectedFromContext.restype = wintypes.BOOL
         # void removeAccessibleSelectionFromContext(long vmID, AccessibleContext context, int index)
-        self._wab.removeAccessibleSelectionFromContext.argtypes = [c_long, JavaObject, c_int]
+        self._wab.removeAccessibleSelectionFromContext.argtypes = [
+            c_long,
+            JavaObject,
+            c_int,
+        ]
         self._wab.removeAccessibleSelectionFromContext.restype = None
         # void selectAllAccessibleSelectionFromContext(long vmID, AccessibleContext context)
-        self._wab.selectAllAccessibleSelectionFromContext.argtypes = [c_long, JavaObject]
+        self._wab.selectAllAccessibleSelectionFromContext.argtypes = [
+            c_long,
+            JavaObject,
+        ]
         self._wab.selectAllAccessibleSelectionFromContext.restype = None
 
         # Utility
         # BOOL setTextContents(long vmID, AccessibleContext context, str text)
-        self._wab.setTextContents.argtypes = [c_long, JavaObject, c_wchar * MAX_STRING_SIZE]
+        self._wab.setTextContents.argtypes = [
+            c_long,
+            JavaObject,
+            c_wchar * MAX_STRING_SIZE,
+        ]
         self._wab.setTextContents.restypes = wintypes.BOOL
         # TODO: getParentWithRole
         # TODO: getParentWithRoleElseRoot
@@ -390,7 +568,12 @@ class JavaAccessBridgeWrapper:
         # TODO: getObjectDepth
         # TODO: getActiveDescendent
         # BOOL getVirtualAccessibleNameFP(long vmID, AccessibleContext context, str name, int len)
-        self._wab.getVirtualAccessibleName.argtypes = [c_long, JavaObject, c_wchar * MAX_STRING_SIZE, c_int]
+        self._wab.getVirtualAccessibleName.argtypes = [
+            c_long,
+            JavaObject,
+            c_wchar * MAX_STRING_SIZE,
+            c_int,
+        ]
         self._wab.getVirtualAccessibleName.restype = wintypes.BOOL
         # BOOL requestFocus(long vmID, AccessibleContext context)
         self._wab.requestFocus.argtypes = [c_long, JavaObject]
@@ -401,7 +584,12 @@ class JavaAccessBridgeWrapper:
         self._wab.getVisibleChildrenCount.argtypes = [c_long, JavaObject]
         self._wab.getVisibleChildrenCount.restype = c_int
         # BOOL getVisibleChildren(long vmID, AccessibleContext context, int startIndex, VisibleChildrenInfo *visibleChilderInfo)
-        self._wab.getVisibleChildren.argtypes = [c_long, JavaObject, c_int, POINTER(VisibleChildrenInfo)]
+        self._wab.getVisibleChildren.argtypes = [
+            c_long,
+            JavaObject,
+            c_int,
+            POINTER(VisibleChildrenInfo),
+        ]
         self._wab.getVisibleChildren.restype = wintypes.BOOL
         # TODO: setCaretPosition
         # TODO: getCaretLocation
@@ -469,44 +657,165 @@ class JavaAccessBridgeWrapper:
 
     def _set_callbacks(self) -> None:
         # Property events
-        self._wab.setPropertyChangeFP(self._get_callback_func("setPropertyChangeFP", PropertyChangeFP, self._property_change))
-        self._wab.setPropertyNameChangeFP(self._get_callback_func("setPropertyNameChangeFP", PropertyNameChangeFP, self._property_name_change))
-        self._wab.setPropertyDescriptionChangeFP(self._get_callback_func("setPropertyDescriptionChangeFP", PropertyDescriptionChangeFP,
-                                                                         self._property_description_change))
-        self._wab.setPropertyStateChangeFP(self._get_callback_func("setPropertyStateChangeFP", PropertStateChangeFP, self._property_state_change))
-        self._wab.setPropertyValueChangeFP(self._get_callback_func("setPropertyValueChangeFP", PropertyValueChangeFP, self._property_value_change))
-        self._wab.setPropertySelectionChangeFP(self._get_callback_func("setPropertySelectionChangeFP", PropertySelectionChangeFP,
-                                                                       self._property_selection_change))
-        self._wab.setPropertyTextChangeFP(self._get_callback_func("setPropertyTextChangeFP", PropertyTextChangedFP, self._property_text_change))
-        self._wab.setPropertyCaretChangeFP(self._get_callback_func("setPropertyCaretChangeFP", PropertyCaretChangeFP, self._property_caret_change))
-        self._wab.setPropertyVisibleDataChangeFP(self._get_callback_func("setPropertyVisibleDataChangeFP", PropertyVisibleDataChangeFP,
-                                                                         self._property_visible_data_change))
-        self._wab.setPropertyChildChangeFP(self._get_callback_func("setPropertyChildChangeFP", PropertyChildChangeFP, self._property_child_change))
-        self._wab.setPropertyActiveDescendentChangeFP(self._get_callback_func("setPropertyActiveDescendentChangeFP", PropertyActiveDescendentChangeFP,
-                                                                              self._property_active_descendent_change))
-        self._wab.setPropertyTableModelChangeFP(self._get_callback_func("setPropertyTableModelChangeFP", PropertyTableModelChangeFP,
-                                                                        self._property_table_model_change))
+        self._wab.setPropertyChangeFP(
+            self._get_callback_func(
+                "setPropertyChangeFP", PropertyChangeFP, self._property_change
+            )
+        )
+        self._wab.setPropertyNameChangeFP(
+            self._get_callback_func(
+                "setPropertyNameChangeFP",
+                PropertyNameChangeFP,
+                self._property_name_change,
+            )
+        )
+        self._wab.setPropertyDescriptionChangeFP(
+            self._get_callback_func(
+                "setPropertyDescriptionChangeFP",
+                PropertyDescriptionChangeFP,
+                self._property_description_change,
+            )
+        )
+        self._wab.setPropertyStateChangeFP(
+            self._get_callback_func(
+                "setPropertyStateChangeFP",
+                PropertStateChangeFP,
+                self._property_state_change,
+            )
+        )
+        self._wab.setPropertyValueChangeFP(
+            self._get_callback_func(
+                "setPropertyValueChangeFP",
+                PropertyValueChangeFP,
+                self._property_value_change,
+            )
+        )
+        self._wab.setPropertySelectionChangeFP(
+            self._get_callback_func(
+                "setPropertySelectionChangeFP",
+                PropertySelectionChangeFP,
+                self._property_selection_change,
+            )
+        )
+        self._wab.setPropertyTextChangeFP(
+            self._get_callback_func(
+                "setPropertyTextChangeFP",
+                PropertyTextChangedFP,
+                self._property_text_change,
+            )
+        )
+        self._wab.setPropertyCaretChangeFP(
+            self._get_callback_func(
+                "setPropertyCaretChangeFP",
+                PropertyCaretChangeFP,
+                self._property_caret_change,
+            )
+        )
+        self._wab.setPropertyVisibleDataChangeFP(
+            self._get_callback_func(
+                "setPropertyVisibleDataChangeFP",
+                PropertyVisibleDataChangeFP,
+                self._property_visible_data_change,
+            )
+        )
+        self._wab.setPropertyChildChangeFP(
+            self._get_callback_func(
+                "setPropertyChildChangeFP",
+                PropertyChildChangeFP,
+                self._property_child_change,
+            )
+        )
+        self._wab.setPropertyActiveDescendentChangeFP(
+            self._get_callback_func(
+                "setPropertyActiveDescendentChangeFP",
+                PropertyActiveDescendentChangeFP,
+                self._property_active_descendent_change,
+            )
+        )
+        self._wab.setPropertyTableModelChangeFP(
+            self._get_callback_func(
+                "setPropertyTableModelChangeFP",
+                PropertyTableModelChangeFP,
+                self._property_table_model_change,
+            )
+        )
         # Menu events
-        self._wab.setMenuSelectedFP(self._get_callback_func("setMenuSelectedFP", MenuSelectedFP, self._menu_selected))
-        self._wab.setMenuDeselectedFP(self._get_callback_func("setMenuDeselectedFP", MenuDeselectedFP, self._menu_deselected))
-        self._wab.setMenuCanceledFP(self._get_callback_func("setMenuCanceledFP", MenuCanceledFP, self._menu_canceled))
+        self._wab.setMenuSelectedFP(
+            self._get_callback_func(
+                "setMenuSelectedFP", MenuSelectedFP, self._menu_selected
+            )
+        )
+        self._wab.setMenuDeselectedFP(
+            self._get_callback_func(
+                "setMenuDeselectedFP", MenuDeselectedFP, self._menu_deselected
+            )
+        )
+        self._wab.setMenuCanceledFP(
+            self._get_callback_func(
+                "setMenuCanceledFP", MenuCanceledFP, self._menu_canceled
+            )
+        )
         # Focus events
-        self._wab.setFocusGainedFP(self._get_callback_func("setFocusGainedFP", FocusGainedFP, self._focus_gained))
-        self._wab.setFocusLostFP(self._get_callback_func("setFocusLostFP", FocusLostFP, self._focus_lost))
+        self._wab.setFocusGainedFP(
+            self._get_callback_func(
+                "setFocusGainedFP", FocusGainedFP, self._focus_gained
+            )
+        )
+        self._wab.setFocusLostFP(
+            self._get_callback_func("setFocusLostFP", FocusLostFP, self._focus_lost)
+        )
         # Caret update events
-        self._wab.setCaretUpdateFP(self._get_callback_func("setCaretUpdateFP", CaretUpdateFP, self._caret_update))
+        self._wab.setCaretUpdateFP(
+            self._get_callback_func(
+                "setCaretUpdateFP", CaretUpdateFP, self._caret_update
+            )
+        )
         # Mouse events
-        self._wab.setMouseClickedFP(self._get_callback_func("setMouseClickedFP", MouseClickedFP, self._mouse_clicked))
-        self._wab.setMouseEnteredFP(self._get_callback_func("SetMouseEnteredFP", MouseEnteredFP, self._mouse_entered))
-        self._wab.setMouseExitedFP(self._get_callback_func("setMouseExitedFP", MouseExitedFP, self._mouse_exited))
-        self._wab.setMousePressedFP(self._get_callback_func("setMousePressedFP", MousePressedFP, self._mouse_pressed))
-        self._wab.setMouseReleasedFP(self._get_callback_func("setMouseReleasedFP", MouseReleasedFP, self._mouse_released))
+        self._wab.setMouseClickedFP(
+            self._get_callback_func(
+                "setMouseClickedFP", MouseClickedFP, self._mouse_clicked
+            )
+        )
+        self._wab.setMouseEnteredFP(
+            self._get_callback_func(
+                "SetMouseEnteredFP", MouseEnteredFP, self._mouse_entered
+            )
+        )
+        self._wab.setMouseExitedFP(
+            self._get_callback_func(
+                "setMouseExitedFP", MouseExitedFP, self._mouse_exited
+            )
+        )
+        self._wab.setMousePressedFP(
+            self._get_callback_func(
+                "setMousePressedFP", MousePressedFP, self._mouse_pressed
+            )
+        )
+        self._wab.setMouseReleasedFP(
+            self._get_callback_func(
+                "setMouseReleasedFP", MouseReleasedFP, self._mouse_released
+            )
+        )
         # Popup menu events
-        self._wab.setPopupMenuCanceledFP(self._get_callback_func("setPopupMenuCanceledFP", PopupMenuCanceledFP, self._popup_menu_canceled))
-        self._wab.setPopupMenuWillBecomeInvisibleFP(self._get_callback_func("setPopupMenuWillBecomeInvisibleFP", PopupMenuWillBecomeInvisibleFP,
-                                                    self._popup_menu_will_become_invisible))
-        self._wab.setPopupMenuWillBecomeVisibleFP(self._get_callback_func("setPopupMenuWillBecomeVisibleFP", PopupMenuWillBecomeVisibleFP,
-                                                  self._popup_menu_will_become_visible))
+        self._wab.setPopupMenuCanceledFP(
+            self._get_callback_func(
+                "setPopupMenuCanceledFP", PopupMenuCanceledFP, self._popup_menu_canceled
+            )
+        )
+        self._wab.setPopupMenuWillBecomeInvisibleFP(
+            self._get_callback_func(
+                "setPopupMenuWillBecomeInvisibleFP",
+                PopupMenuWillBecomeInvisibleFP,
+                self._popup_menu_will_become_invisible,
+            )
+        )
+        self._wab.setPopupMenuWillBecomeVisibleFP(
+            self._get_callback_func(
+                "setPopupMenuWillBecomeVisibleFP",
+                PopupMenuWillBecomeVisibleFP,
+                self._popup_menu_will_become_visible,
+            )
+        )
 
     def _remove_callbacks(self) -> None:
         # Property events
@@ -597,7 +906,9 @@ class JavaAccessBridgeWrapper:
         self._hwnd = java_window.hwnd
         self._vmID = c_long()
         self.context = JavaObject()
-        self._wab.getAccessibleContextFromHWND(self._hwnd, byref(self._vmID), byref(self.context))
+        self._wab.getAccessibleContextFromHWND(
+            self._hwnd, byref(self._vmID), byref(self.context)
+        )
 
         if not self._hwnd or not self._vmID or not self.context:
             raise Exception("Window not found")
@@ -605,13 +916,15 @@ class JavaAccessBridgeWrapper:
         if not self._hwnd:
             raise Exception(f"Window not found={title}")
 
-        logging.info("Found Java window text={} pid={} hwnd={} vmID={} context={}\n".format(
-            java_window.title,
-            java_window.pid,
-            self._hwnd,
-            self._vmID,
-            self.context,
-        ))
+        logging.info(
+            "Found Java window text={} pid={} hwnd={} vmID={} context={}\n".format(
+                java_window.title,
+                java_window.pid,
+                self._hwnd,
+                self._vmID,
+                self.context,
+            )
+        )
 
         return java_window.pid
 
@@ -643,7 +956,9 @@ class JavaAccessBridgeWrapper:
         self._hwnd = java_window.hwnd
         self._vmID = c_long()
         self.context = JavaObject()
-        self._wab.getAccessibleContextFromHWND(self._hwnd, byref(self._vmID), byref(self.context))
+        self._wab.getAccessibleContextFromHWND(
+            self._hwnd, byref(self._vmID), byref(self.context)
+        )
 
         if not self._hwnd or not self._vmID or not self.context:
             raise Exception("Window not found")
@@ -651,13 +966,15 @@ class JavaAccessBridgeWrapper:
         if not self._hwnd:
             raise Exception(f"Window not found={pid}")
 
-        logging.info("Found Java window text={} pid={} hwnd={} vmID={} context={}\n".format(
-            java_window.title,
-            java_window.pid,
-            self._hwnd,
-            self._vmID,
-            self.context,
-        ))
+        logging.info(
+            "Found Java window text={} pid={} hwnd={} vmID={} context={}\n".format(
+                java_window.title,
+                java_window.pid,
+                self._hwnd,
+                self._vmID,
+                self.context,
+            )
+        )
 
         return java_window.pid
 
@@ -677,7 +994,9 @@ class JavaAccessBridgeWrapper:
             raise WinError()
         return enumerator.windows
 
-    def get_accessible_context_from_hwnd(self, hwnd: wintypes.HWND) -> Tuple[c_long, JavaObject]:
+    def get_accessible_context_from_hwnd(
+        self, hwnd: wintypes.HWND
+    ) -> Tuple[c_long, JavaObject]:
         """
         Get the context handle for interacting via the JAB API.
 
@@ -700,7 +1019,9 @@ class JavaAccessBridgeWrapper:
     def get_hwnd_from_accessible_context(self, context) -> wintypes.HWND:
         return self._wab.getHWNDFromAccessibleContext(self._vmID, context)
 
-    def get_accessible_context_at(self, parent: JavaObject, x: int, y: int) -> JavaObject:
+    def get_accessible_context_at(
+        self, parent: JavaObject, x: int, y: int
+    ) -> JavaObject:
         """
         Get the context handle for interacting via the JAB API at coordinates.
 
@@ -762,7 +1083,9 @@ class JavaAccessBridgeWrapper:
             raise APIException("Failed to get accessible table info")
         return table_info
 
-    def get_accessible_table_cell_info(self, table_context: JavaObject, row: int, column: int) -> AccessibleTableCellInfo:
+    def get_accessible_table_cell_info(
+        self, table_context: JavaObject, row: int, column: int
+    ) -> AccessibleTableCellInfo:
         """
         Get table cell information.
 
@@ -791,9 +1114,13 @@ class JavaAccessBridgeWrapper:
             cell_info = jab_wrapper.get_accessible_table_cell_info(table_info.accessibleTable, 1, 1)
         """
         table_cell_info = AccessibleTableCellInfo()
-        ok = self._wab.getAccessibleTableCellInfo(self._vmID, table_context, row, column, byref(table_cell_info))
+        ok = self._wab.getAccessibleTableCellInfo(
+            self._vmID, table_context, row, column, byref(table_cell_info)
+        )
         if not ok:
-            raise APIException(f"Failed to get accessible table cell info at={row},{column}")
+            raise APIException(
+                f"Failed to get accessible table cell info at={row},{column}"
+            )
         return table_cell_info
 
     def get_accessible_table_row_header(self, context) -> AccessibleTableInfo:
@@ -819,7 +1146,9 @@ class JavaAccessBridgeWrapper:
             APIException: failed to call the java access bridge API with attributes.
         """
         table_info = AccessibleTableInfo()
-        ok = self._wab.getAccessibleTableRowHeader(self._vmID, context, byref(table_info))
+        ok = self._wab.getAccessibleTableRowHeader(
+            self._vmID, context, byref(table_info)
+        )
         if not ok:
             raise APIException("Failed to get accessible table row header")
         return table_info
@@ -847,12 +1176,16 @@ class JavaAccessBridgeWrapper:
             APIException: failed to call the java access bridge API with attributes.
         """
         table_info = AccessibleTableInfo()
-        ok = self._wab.getAccessibleTableColumnHeader(self._vmID, context, byref(table_info))
+        ok = self._wab.getAccessibleTableColumnHeader(
+            self._vmID, context, byref(table_info)
+        )
         if not ok:
             raise APIException("Failed to get accessible table column header")
         return table_info
 
-    def get_accessible_table_row_description(self, context: JavaObject, row: int) -> JavaObject:
+    def get_accessible_table_row_description(
+        self, context: JavaObject, row: int
+    ) -> JavaObject:
         """
         Get table row description.
 
@@ -865,7 +1198,9 @@ class JavaAccessBridgeWrapper:
         """
         return self._wab.getAccessibleTableRowDescription(self._vmID, context, row)
 
-    def get_accessible_table_column_description(self, context: JavaObject, column: int) -> JavaObject:
+    def get_accessible_table_column_description(
+        self, context: JavaObject, column: int
+    ) -> JavaObject:
         """
         Get table column description.
 
@@ -876,9 +1211,13 @@ class JavaAccessBridgeWrapper:
         Returns:
             JavaObject: Table column description.
         """
-        return self._wab.getAccessibleTableColumnDescription(self._vmID, context, column)
+        return self._wab.getAccessibleTableColumnDescription(
+            self._vmID, context, column
+        )
 
-    def get_accessible_table_row_selection_count(self, table_context: JavaObject) -> int:
+    def get_accessible_table_row_selection_count(
+        self, table_context: JavaObject
+    ) -> int:
         """
         Get table row selection count.
 
@@ -890,7 +1229,9 @@ class JavaAccessBridgeWrapper:
         """
         return self._wab.getAccessibleTableRowSelectionCount(self._vmID, table_context)
 
-    def is_accessible_table_row_selected(self, table_context: JavaObject, row: int) -> bool:
+    def is_accessible_table_row_selected(
+        self, table_context: JavaObject, row: int
+    ) -> bool:
         """
         Validate if the row is selected.
 
@@ -929,7 +1270,9 @@ class JavaAccessBridgeWrapper:
         """
         return self._wab.getAccessibleTableColumn(self._vmID, table_context, index)
 
-    def get_accessible_table_index(self, table_context: JavaObject, row: int, column: int) -> int:
+    def get_accessible_table_index(
+        self, table_context: JavaObject, row: int, column: int
+    ) -> int:
         """
         Get the cell index at a row and column.
 
@@ -943,7 +1286,9 @@ class JavaAccessBridgeWrapper:
         """
         return self._wab.getAccessibleTableIndex(self._vmID, table_context, row, column)
 
-    def get_accessible_table_column_selection_count(self, table_context: JavaObject) -> int:
+    def get_accessible_table_column_selection_count(
+        self, table_context: JavaObject
+    ) -> int:
         """
         Get table column selection count.
 
@@ -953,9 +1298,13 @@ class JavaAccessBridgeWrapper:
         Returns:
             int: Table column selection count.
         """
-        return self._wab.getAccessibleTableColumnSelectionCount(self._vmID, table_context)
+        return self._wab.getAccessibleTableColumnSelectionCount(
+            self._vmID, table_context
+        )
 
-    def is_accessible_table_column_selected(self, table_context: JavaObject, row: int) -> bool:
+    def is_accessible_table_column_selected(
+        self, table_context: JavaObject, row: int
+    ) -> bool:
         """
         Validate if the column is selected.
 
@@ -968,7 +1317,9 @@ class JavaAccessBridgeWrapper:
         """
         return self._wab.isAccessibleTableColumnSelected(self._vmID, table_context, row)
 
-    def get_accessible_relation_set_info(self, context: JavaObject) -> AccessibleRelationSetInfo:
+    def get_accessible_relation_set_info(
+        self, context: JavaObject
+    ) -> AccessibleRelationSetInfo:
         """
         Get element relation set information.
 
@@ -994,7 +1345,9 @@ class JavaAccessBridgeWrapper:
         """
         relation_set_info = AccessibleRelationSetInfo()
         logging.info("getting rel set")
-        ok = self._wab.getAccessibleRelationSet(self._vmID, context, byref(relation_set_info))
+        ok = self._wab.getAccessibleRelationSet(
+            self._vmID, context, byref(relation_set_info)
+        )
         logging.info(f"rel set={ok}")
         if not ok:
             raise APIException("Failed to get accessible relation set info")
@@ -1092,12 +1445,16 @@ class JavaAccessBridgeWrapper:
             APIException: failed to call the java access bridge API with attributes.
         """
         hypertext_info = AccessibleHypertextInfo()
-        ok = self._wab.getAccessibleHypertext(self._vmID, context, byref(hypertext_info))
+        ok = self._wab.getAccessibleHypertext(
+            self._vmID, context, byref(hypertext_info)
+        )
         if not ok:
             raise APIException("Failed to get accessible hypertext info")
         return hypertext_info
 
-    def activate_accessible_hyperlink(self, context: JavaObject, hyperlink: JavaObject) -> None:
+    def activate_accessible_hyperlink(
+        self, context: JavaObject, hyperlink: JavaObject
+    ) -> None:
         """
         Activate hyperlink.
 
@@ -1127,7 +1484,9 @@ class JavaAccessBridgeWrapper:
         """
         return self._wab.getAccessibleHyperlinkCount(self._vmID, context)
 
-    def get_accessible_hypertext_ext(self, context: JavaObject, index: int) -> AccessibleHypertextInfo:
+    def get_accessible_hypertext_ext(
+        self, context: JavaObject, index: int
+    ) -> AccessibleHypertextInfo:
         """
         Get the hypertext info for element containing hyperlinks starting from the index.
 
@@ -1155,12 +1514,18 @@ class JavaAccessBridgeWrapper:
             APIException: failed to call the java access bridge API with attributes.
         """
         hypertext_info = AccessibleHypertextInfo()
-        ok = self._wab.getAccessibleHypertextExt(self._vmID, context, index, byref(hypertext_info))
+        ok = self._wab.getAccessibleHypertextExt(
+            self._vmID, context, index, byref(hypertext_info)
+        )
         if not ok:
-            raise APIException(f"Failed to get accessible hypertext info starting from index={index}")
+            raise APIException(
+                f"Failed to get accessible hypertext info starting from index={index}"
+            )
         return hypertext_info
 
-    def get_accessible_hypertext_link_index(self, hypertext: JavaObject, char_index: int) -> int:
+    def get_accessible_hypertext_link_index(
+        self, hypertext: JavaObject, char_index: int
+    ) -> int:
         """
         Get the index into an array of hyperlinks that is associated with a character index in element.
 
@@ -1170,9 +1535,13 @@ class JavaAccessBridgeWrapper:
         Returns:
             int: index of hyperlink in element.
         """
-        return self._wab.getAccessibleHypertextLinkIndex(self._vmID, hypertext, char_index)
+        return self._wab.getAccessibleHypertextLinkIndex(
+            self._vmID, hypertext, char_index
+        )
 
-    def get_accessible_hyperlink(self, hypertext: JavaObject, index: int) -> AccessibleHyperlinkInfo:
+    def get_accessible_hyperlink(
+        self, hypertext: JavaObject, index: int
+    ) -> AccessibleHyperlinkInfo:
         """
         Get hyperlink of hypertext object.
 
@@ -1193,12 +1562,18 @@ class JavaAccessBridgeWrapper:
             APIException: failed to call the java access bridge API with attributes.
         """
         hyperlink_info = AccessibleHyperlinkInfo()
-        ok = self._wab.getAccessibleHyperlink(self._vmID, hypertext, index, byref(hyperlink_info))
+        ok = self._wab.getAccessibleHyperlink(
+            self._vmID, hypertext, index, byref(hyperlink_info)
+        )
         if not ok:
-            raise APIException(f"Failed to get accessible hypertext link info at index={index}")
+            raise APIException(
+                f"Failed to get accessible hypertext link info at index={index}"
+            )
         return hyperlink_info
 
-    def get_context_text_info(self, context: JavaObject, x: int, y: int) -> AccessibleTextInfo:
+    def get_context_text_info(
+        self, context: JavaObject, x: int, y: int
+    ) -> AccessibleTextInfo:
         """
         Get text info object at coordinates.
 
@@ -1225,7 +1600,9 @@ class JavaAccessBridgeWrapper:
             raise APIException("Failed to get accessible text info")
         return info
 
-    def get_accessible_text_items(self, context: JavaObject, index: int) -> AccessibleTextItemsInfo:
+    def get_accessible_text_items(
+        self, context: JavaObject, index: int
+    ) -> AccessibleTextItemsInfo:
         """
         Get text items object at index.
 
@@ -1251,7 +1628,9 @@ class JavaAccessBridgeWrapper:
             raise APIException("Failed to get accessible text context")
         return info
 
-    def get_accessible_text_selection_info(self, context: JavaObject) -> AccessibleTextSelectionInfo:
+    def get_accessible_text_selection_info(
+        self, context: JavaObject
+    ) -> AccessibleTextSelectionInfo:
         """
         Get text selection info object.
 
@@ -1276,7 +1655,9 @@ class JavaAccessBridgeWrapper:
             raise APIException("Failed to get accessible text selection info")
         return info
 
-    def get_accessible_text_attributes(self, context: JavaObject, index: int) -> AccessibleTextAttributesInfo:
+    def get_accessible_text_attributes(
+        self, context: JavaObject, index: int
+    ) -> AccessibleTextAttributesInfo:
         """
         Get text attributes object at index.
 
@@ -1317,12 +1698,16 @@ class JavaAccessBridgeWrapper:
             APIException: failed to call the java access bridge API with attributes.
         """
         attributes_info = AccessibleTextAttributesInfo()
-        ok = self._wab.getAccessibleTextAttributes(self._vmID, context, index, attributes_info)
+        ok = self._wab.getAccessibleTextAttributes(
+            self._vmID, context, index, attributes_info
+        )
         if not ok:
             raise APIException("Failed to get accessible text attributes info")
         return attributes_info
 
-    def get_accessible_text_rect(self, context: JavaObject, index: int) -> AccessibleTextRectInfo:
+    def get_accessible_text_rect(
+        self, context: JavaObject, index: int
+    ) -> AccessibleTextRectInfo:
         """
         Get text rectangle object at index.
 
@@ -1344,7 +1729,9 @@ class JavaAccessBridgeWrapper:
             APIException: failed to call the java access bridge API with attributes.
         """
         rect_info = AccessibleTextRectInfo()
-        ok = self._wab.getAccessibleTextRect(self._vmID, context, byref(rect_info), index)
+        ok = self._wab.getAccessibleTextRect(
+            self._vmID, context, byref(rect_info), index
+        )
         if not ok:
             raise APIException("Failed to get accessible text rect info")
         return rect_info
@@ -1365,12 +1752,16 @@ class JavaAccessBridgeWrapper:
         """
         start_index = c_int()
         end_index = c_int()
-        ok = self._wab.getAccessibleTextLineBounds(self._vmID, context, index, byref(start_index), byref(end_index))
+        ok = self._wab.getAccessibleTextLineBounds(
+            self._vmID, context, index, byref(start_index), byref(end_index)
+        )
         if not ok:
             raise APIException(f"Failed to get accessible text line bounds at={index}")
         return start_index, end_index
 
-    def get_accessible_text_range(self, context: JavaObject, start_index: int, end_index: int, length: c_short) -> str:
+    def get_accessible_text_range(
+        self, context: JavaObject, start_index: int, end_index: int, length: c_short
+    ) -> str:
         """
         Get text at range.
 
@@ -1387,7 +1778,9 @@ class JavaAccessBridgeWrapper:
             APIException: failed to call the java access bridge API with attributes.
         """
         buf = create_unicode_buffer(length)
-        ok = self._wab.getAccessibleTextRange(self._vmID, context, start_index, end_index, buf, length)
+        ok = self._wab.getAccessibleTextRange(
+            self._vmID, context, start_index, end_index, buf, length
+        )
         if not ok:
             raise APIException("Failed to get accessible range")
         return buf.value
@@ -1406,7 +1799,9 @@ class JavaAccessBridgeWrapper:
             APIException: failed to call the java access bridge API with attributes.
         """
         buf = create_unicode_buffer(SHORT_STRING_SIZE)
-        ok = self._wab.getCurrentAccessibleValueFromContext(self._vmID, context, buf, SHORT_STRING_SIZE)
+        ok = self._wab.getCurrentAccessibleValueFromContext(
+            self._vmID, context, buf, SHORT_STRING_SIZE
+        )
         if not ok:
             raise APIException("Failed to get current accessible value from context")
         return buf.value
@@ -1425,7 +1820,9 @@ class JavaAccessBridgeWrapper:
             APIException: failed to call the java access bridge API with attributes.
         """
         buf = create_unicode_buffer(SHORT_STRING_SIZE)
-        ok = self._wab.getMaximumAccessibleValueFromContext(self._vmID, context, buf, SHORT_STRING_SIZE)
+        ok = self._wab.getMaximumAccessibleValueFromContext(
+            self._vmID, context, buf, SHORT_STRING_SIZE
+        )
         if not ok:
             raise APIException("Failed to get maximum accessible value from context")
         return buf.value
@@ -1444,12 +1841,16 @@ class JavaAccessBridgeWrapper:
             APIException: failed to call the java access bridge API with attributes.
         """
         buf = create_unicode_buffer(SHORT_STRING_SIZE)
-        ok = self._wab.getMinimumAccessibleValueFromContext(self._vmID, context, buf, SHORT_STRING_SIZE)
+        ok = self._wab.getMinimumAccessibleValueFromContext(
+            self._vmID, context, buf, SHORT_STRING_SIZE
+        )
         if not ok:
             raise APIException("Failed to get minimum accessible value from context")
         return buf.value
 
-    def add_accessible_selection_from_context(self, context: JavaObject, index: int) -> None:
+    def add_accessible_selection_from_context(
+        self, context: JavaObject, index: int
+    ) -> None:
         """
         Select value in selectable context.
 
@@ -1474,7 +1875,9 @@ class JavaAccessBridgeWrapper:
         """
         self._wab.clearAccessibleSelectionFromContext(self._vmID, context)
 
-    def get_accessible_selection_from_context(self, context: JavaObject, index: int) -> JavaObject:
+    def get_accessible_selection_from_context(
+        self, context: JavaObject, index: int
+    ) -> JavaObject:
         """
         Get selectable context.
 
@@ -1499,7 +1902,9 @@ class JavaAccessBridgeWrapper:
         """
         return self._wab.getAccessibleSelectionCountFromContext(self._vmID, context)
 
-    def is_accessible_child_selected_from_context(self, context: JavaObject, index: JavaObject) -> bool:
+    def is_accessible_child_selected_from_context(
+        self, context: JavaObject, index: JavaObject
+    ) -> bool:
         """
         Check if selectable object is selected in element.
 
@@ -1510,9 +1915,13 @@ class JavaAccessBridgeWrapper:
         Returns:
             bool: True if selected else False.
         """
-        return bool(self._wab.isAccessibleChildSelectedFromContext(self._vmID, context, index))
+        return bool(
+            self._wab.isAccessibleChildSelectedFromContext(self._vmID, context, index)
+        )
 
-    def remove_accessible_selection_from_context(self, context: JavaObject, index: int) -> None:
+    def remove_accessible_selection_from_context(
+        self, context: JavaObject, index: int
+    ) -> None:
         """
         Remove active selection from selectable element.
 
@@ -1565,7 +1974,9 @@ class JavaAccessBridgeWrapper:
             raise APIException("Failed to get accessible actions")
         return actions
 
-    def do_accessible_actions(self, context: JavaObject, actions: AccessibleActionsToDo) -> None:
+    def do_accessible_actions(
+        self, context: JavaObject, actions: AccessibleActionsToDo
+    ) -> None:
         """
         Do actions for element context.
 
@@ -1653,7 +2064,9 @@ class JavaAccessBridgeWrapper:
             APIException: failed to call the java access bridge API with attributes.
         """
         key_bindings = AccessibleKeyBindings()
-        ok = self._wab.getAccessibleKeyBindings(self._vmID, context, byref(key_bindings))
+        ok = self._wab.getAccessibleKeyBindings(
+            self._vmID, context, byref(key_bindings)
+        )
         if not ok:
             raise APIException("Failed to get accessible key bindings")
         return key_bindings
@@ -1705,7 +2118,9 @@ class JavaAccessBridgeWrapper:
             APIException: failed to call the java access bridge API with attributes.
         """
         buf = create_unicode_buffer(MAX_STRING_SIZE)
-        ok = self._wab.getVirtualAccessibleName(self._vmID, context, buf, MAX_STRING_SIZE)
+        ok = self._wab.getVirtualAccessibleName(
+            self._vmID, context, buf, MAX_STRING_SIZE
+        )
         if not ok:
             raise APIException("Failed to get virtual accessible name")
         return buf.value
@@ -1713,14 +2128,20 @@ class JavaAccessBridgeWrapper:
     def get_visible_children_count(self, context: JavaObject) -> int:
         return self._wab.getVisibleChildrenCount(self._vmID, context)
 
-    def get_visible_children(self, context: JavaObject, start_index: int) -> VisibleChildrenInfo:
+    def get_visible_children(
+        self, context: JavaObject, start_index: int
+    ) -> VisibleChildrenInfo:
         visible_children = VisibleChildrenInfo()
-        ok = self._wab.getVisibleChildren(self._vmID, context, start_index, byref(visible_children))
+        ok = self._wab.getVisibleChildren(
+            self._vmID, context, start_index, byref(visible_children)
+        )
         if not ok:
-            raise APIException('Failed to get visible children info')
+            raise APIException("Failed to get visible children info")
         return visible_children
 
-    def register_callback(self, name: str, callback: Callable[[JavaObject], None]) -> None:
+    def register_callback(
+        self, name: str, callback: Callable[[JavaObject], None]
+    ) -> None:
         """
         Register a callback handler for GUI events.
 
@@ -1765,10 +2186,7 @@ class JavaAccessBridgeWrapper:
             * popup_menu_will_become_visible
         """
         logging.debug(f"Registering callback={name}")
-        if name in self._context_callbacks:
-            self._context_callbacks[name].append(callback)
-        else:
-            self._context_callbacks[name] = [callback]
+        self._context_callbacks.setdefault(name, []).append(callback)
 
     def clear_callbacks(self):
         self._context_callbacks.clear()
@@ -1776,165 +2194,245 @@ class JavaAccessBridgeWrapper:
     """
     Define the callback handlers
     """
+
     def _get_callback_func(self, name, wrapper, callback):
         def func(*args):
             callback(*args)
+
         runner = wrapper(func)
         setattr(self, name, runner)
         return runner
 
-    def _property_change(self, vmID: c_long, event: JavaObject, source: JavaObject, property, old_value, new_value):
+    def _property_change(
+        self,
+        vmID: c_long,
+        event: JavaObject,
+        source: JavaObject,
+        property,
+        old_value,
+        new_value,
+    ):
         with ReleaseEvent(self, vmID, "property_change", event, source):
-            if 'property_change' in self._context_callbacks:
-                for cp in self._context_callbacks['property_change']:
+            if "property_change" in self._context_callbacks:
+                for cp in self._context_callbacks["property_change"]:
                     cp(source, property, old_value, new_value)
 
-    def _property_name_change(self, vmID: c_long, event: JavaObject, source: JavaObject, old_value: str, new_value: str):
+    def _property_name_change(
+        self,
+        vmID: c_long,
+        event: JavaObject,
+        source: JavaObject,
+        old_value: str,
+        new_value: str,
+    ):
         with ReleaseEvent(self, vmID, "property_name_change", event, source):
-            if 'property_name_change' in self._context_callbacks:
-                for cp in self._context_callbacks['property_name_change']:
+            if "property_name_change" in self._context_callbacks:
+                for cp in self._context_callbacks["property_name_change"]:
                     cp(source, old_value, new_value)
 
-    def _property_description_change(self, vmID: c_long, event: JavaObject, source: JavaObject, old_value: str, new_value: str):
+    def _property_description_change(
+        self,
+        vmID: c_long,
+        event: JavaObject,
+        source: JavaObject,
+        old_value: str,
+        new_value: str,
+    ):
         with ReleaseEvent(self, vmID, "property_description_change", event, source):
-            if 'property_description_change' in self._context_callbacks:
-                for cp in self._context_callbacks['property_description_change']:
+            if "property_description_change" in self._context_callbacks:
+                for cp in self._context_callbacks["property_description_change"]:
                     cp(source, old_value, new_value)
 
-    def _property_state_change(self, vmID: c_long, event: JavaObject, source: JavaObject, old_value: str, new_value: str):
+    def _property_state_change(
+        self,
+        vmID: c_long,
+        event: JavaObject,
+        source: JavaObject,
+        old_value: str,
+        new_value: str,
+    ):
         with ReleaseEvent(self, vmID, "property_state_change", event, source):
-            if 'property_state_change' in self._context_callbacks:
-                for cp in self._context_callbacks['property_state_change']:
+            if "property_state_change" in self._context_callbacks:
+                for cp in self._context_callbacks["property_state_change"]:
                     cp(source, old_value, new_value)
 
-    def _property_value_change(self, vmID: c_long, event: JavaObject, source: JavaObject, old_value: str, new_value: str):
+    def _property_value_change(
+        self,
+        vmID: c_long,
+        event: JavaObject,
+        source: JavaObject,
+        old_value: str,
+        new_value: str,
+    ):
         with ReleaseEvent(self, vmID, "property_value_change", event, source):
-            if 'property_value_change' in self._context_callbacks:
-                for cp in self._context_callbacks['property_value_change']:
+            if "property_value_change" in self._context_callbacks:
+                for cp in self._context_callbacks["property_value_change"]:
                     cp(source, old_value, new_value)
 
-    def _property_selection_change(self, vmID: c_long, event: JavaObject, source: JavaObject):
+    def _property_selection_change(
+        self, vmID: c_long, event: JavaObject, source: JavaObject
+    ):
         with ReleaseEvent(self, vmID, "property_selection_change", event, source):
-            if 'property_selection_change' in self._context_callbacks:
-                for cp in self._context_callbacks['property_selection_change']:
+            if "property_selection_change" in self._context_callbacks:
+                for cp in self._context_callbacks["property_selection_change"]:
                     cp(source)
 
-    def _property_text_change(self, vmID: c_long, event: JavaObject, source: JavaObject):
+    def _property_text_change(
+        self, vmID: c_long, event: JavaObject, source: JavaObject
+    ):
         with ReleaseEvent(self, vmID, "property_text_change", event, source):
-            if 'property_text_change' in self._context_callbacks:
-                for cp in self._context_callbacks['property_text_change']:
+            if "property_text_change" in self._context_callbacks:
+                for cp in self._context_callbacks["property_text_change"]:
                     cp(source)
 
-    def _property_caret_change(self, vmID: c_long, event: JavaObject, source: JavaObject, old_pos: int, new_pos: int):
+    def _property_caret_change(
+        self,
+        vmID: c_long,
+        event: JavaObject,
+        source: JavaObject,
+        old_pos: int,
+        new_pos: int,
+    ):
         with ReleaseEvent(self, vmID, "set_property_caret_change", event, source):
-            if 'set_property_caret_change' in self._context_callbacks:
-                for cp in self._context_callbacks['set_property_caret_change']:
+            if "set_property_caret_change" in self._context_callbacks:
+                for cp in self._context_callbacks["set_property_caret_change"]:
                     cp(source, old_pos, new_pos)
 
-    def _property_visible_data_change(self, vmID: c_long, event: JavaObject, source: JavaObject):
+    def _property_visible_data_change(
+        self, vmID: c_long, event: JavaObject, source: JavaObject
+    ):
         with ReleaseEvent(self, vmID, "property_visible_data_change", event, source):
-            if 'property_visible_data_change' in self._context_callbacks:
-                for cp in self._context_callbacks['property_visible_data_change']:
+            if "property_visible_data_change" in self._context_callbacks:
+                for cp in self._context_callbacks["property_visible_data_change"]:
                     cp(source)
 
-    def _property_child_change(self, vmID: c_long, event: JavaObject, source: JavaObject, old_child: JavaObject, new_child: JavaObject):
+    def _property_child_change(
+        self,
+        vmID: c_long,
+        event: JavaObject,
+        source: JavaObject,
+        old_child: JavaObject,
+        new_child: JavaObject,
+    ):
         with ReleaseEvent(self, vmID, "property_child_change", event, source):
-            if 'property_child_change' in self._context_callbacks:
-                for cp in self._context_callbacks['property_child_change']:
+            if "property_child_change" in self._context_callbacks:
+                for cp in self._context_callbacks["property_child_change"]:
                     cp(source, old_child, new_child)
 
-    def _property_active_descendent_change(self, vmID: c_long, event: JavaObject, source: JavaObject, old_child: JavaObject, new_child: JavaObject):
-        with ReleaseEvent(self, vmID, "property_active_descendent_change", event, source):
-            if 'property active descendent change' in self._context_callbacks:
-                for cp in self._context_callbacks['property_active_descendent_change']:
+    def _property_active_descendent_change(
+        self,
+        vmID: c_long,
+        event: JavaObject,
+        source: JavaObject,
+        old_child: JavaObject,
+        new_child: JavaObject,
+    ):
+        with ReleaseEvent(
+            self, vmID, "property_active_descendent_change", event, source
+        ):
+            if "property active descendent change" in self._context_callbacks:
+                for cp in self._context_callbacks["property_active_descendent_change"]:
                     cp(source, old_child, new_child)
 
-    def _property_table_model_change(self, vmID: c_long, event: JavaObject, source: JavaObject, old_value: str, new_value: str):
+    def _property_table_model_change(
+        self,
+        vmID: c_long,
+        event: JavaObject,
+        source: JavaObject,
+        old_value: str,
+        new_value: str,
+    ):
         with ReleaseEvent(self, vmID, "property_table_model_change", event, source):
-            if 'property_table_model_change' in self._context_callbacks:
-                for cp in self._context_callbacks['property_table_model_change']:
+            if "property_table_model_change" in self._context_callbacks:
+                for cp in self._context_callbacks["property_table_model_change"]:
                     cp(source, old_value, new_value)
 
     def _menu_selected(self, vmID: c_long, event: JavaObject, source: JavaObject):
         with ReleaseEvent(self, vmID, "menu_selected", event, source):
-            if 'menu_selected' in self._context_callbacks:
-                for cp in self._context_callbacks['menu_selected']:
+            if "menu_selected" in self._context_callbacks:
+                for cp in self._context_callbacks["menu_selected"]:
                     cp(source)
 
     def _menu_deselected(self, vmID: c_long, event: JavaObject, source: JavaObject):
         with ReleaseEvent(self, vmID, "menu_deselected", event, source):
-            if 'menu_deselected' in self._context_callbacks:
-                for cp in self._context_callbacks['menu_deselected']:
+            if "menu_deselected" in self._context_callbacks:
+                for cp in self._context_callbacks["menu_deselected"]:
                     cp(source)
 
     def _menu_canceled(self, vmID: c_long, event: JavaObject, source: JavaObject):
         with ReleaseEvent(self, vmID, "menu_canceled", event, source):
-            if 'menu_canceled' in self._context_callbacks:
-                for cp in self._context_callbacks['menu_canceled']:
+            if "menu_canceled" in self._context_callbacks:
+                for cp in self._context_callbacks["menu_canceled"]:
                     cp(source)
 
     def _focus_gained(self, vmID: c_long, event: JavaObject, source: JavaObject):
         with ReleaseEvent(self, vmID, "focus_gained", event, source):
-            if 'focus_gained' in self._context_callbacks:
-                for cp in self._context_callbacks['focus_gained']:
+            if "focus_gained" in self._context_callbacks:
+                for cp in self._context_callbacks["focus_gained"]:
                     cp(source)
 
     def _focus_lost(self, vmID: c_long, event: JavaObject, source: JavaObject):
         with ReleaseEvent(self, vmID, "focus_lost", event, source):
-            if 'focus_lost' in self._context_callbacks:
-                for cp in self._context_callbacks['focus_lost']:
+            if "focus_lost" in self._context_callbacks:
+                for cp in self._context_callbacks["focus_lost"]:
                     cp(source)
 
     def _caret_update(self, vmID: c_long, event: JavaObject, source: JavaObject):
         with ReleaseEvent(self, vmID, "caret_update", event, source):
-            if 'caret_update' in self._context_callbacks:
-                for cp in self._context_callbacks['caret_update']:
+            if "caret_update" in self._context_callbacks:
+                for cp in self._context_callbacks["caret_update"]:
                     cp(source)
 
     def _mouse_clicked(self, vmID: c_long, event: JavaObject, source: JavaObject):
         with ReleaseEvent(self, vmID, "mouse_clicked", event, source):
-            if 'mouse_clicked' in self._context_callbacks:
-                for cp in self._context_callbacks['mouse_clicked']:
+            if "mouse_clicked" in self._context_callbacks:
+                for cp in self._context_callbacks["mouse_clicked"]:
                     cp(source)
 
     def _mouse_entered(self, vmID: c_long, event: JavaObject, source: JavaObject):
         with ReleaseEvent(self, vmID, "mouse_entered", event, source):
-            if 'mouse_entered' in self._context_callbacks:
-                for cp in self._context_callbacks['mouse_entered']:
+            if "mouse_entered" in self._context_callbacks:
+                for cp in self._context_callbacks["mouse_entered"]:
                     cp(source)
 
     def _mouse_exited(self, vmID: c_long, event: JavaObject, source: JavaObject):
         with ReleaseEvent(self, vmID, "mouse_exited", event, source):
-            if 'mouse_exited' in self._context_callbacks:
-                for cp in self._context_callbacks['mouse_exited']:
+            if "mouse_exited" in self._context_callbacks:
+                for cp in self._context_callbacks["mouse_exited"]:
                     cp(source)
 
     def _mouse_pressed(self, vmID: c_long, event: JavaObject, source: JavaObject):
         with ReleaseEvent(self, vmID, "mouse_pressed", event, source):
-            if 'mouse_pressed' in self._context_callbacks:
-                for cp in self._context_callbacks['mouse_pressed']:
+            if "mouse_pressed" in self._context_callbacks:
+                for cp in self._context_callbacks["mouse_pressed"]:
                     cp(source)
 
     def _mouse_released(self, vmID: c_long, event: JavaObject, source: JavaObject):
         with ReleaseEvent(self, vmID, "mouse_released", event, source):
-            if 'mouse_released' in self._context_callbacks:
-                for cp in self._context_callbacks['mouse_released']:
+            if "mouse_released" in self._context_callbacks:
+                for cp in self._context_callbacks["mouse_released"]:
                     cp(source)
 
     def _popup_menu_canceled(self, vmID: c_long, event: JavaObject, source: JavaObject):
         with ReleaseEvent(self, vmID, "popup_menu_canceled", event, source):
-            if 'popup_menu_canceled' in self._context_callbacks:
-                for cp in self._context_callbacks['popup_menu_canceled']:
+            if "popup_menu_canceled" in self._context_callbacks:
+                for cp in self._context_callbacks["popup_menu_canceled"]:
                     cp(source)
 
-    def _popup_menu_will_become_invisible(self, vmID: c_long, event: JavaObject, source: JavaObject):
-        with ReleaseEvent(self, vmID, "popup_menu_will_become_invisible", event, source):
-            if 'popup_menu_will_become_invisible' in self._context_callbacks:
-                for cp in self._context_callbacks['popup_menu_will_become_invisible']:
+    def _popup_menu_will_become_invisible(
+        self, vmID: c_long, event: JavaObject, source: JavaObject
+    ):
+        with ReleaseEvent(
+            self, vmID, "popup_menu_will_become_invisible", event, source
+        ):
+            if "popup_menu_will_become_invisible" in self._context_callbacks:
+                for cp in self._context_callbacks["popup_menu_will_become_invisible"]:
                     cp(source)
 
-    def _popup_menu_will_become_visible(self, vmID: c_long, event: JavaObject, source: JavaObject):
+    def _popup_menu_will_become_visible(
+        self, vmID: c_long, event: JavaObject, source: JavaObject
+    ):
         with ReleaseEvent(self, vmID, "popup_menu_will_become_visible", event, source):
-            if 'popup_menu_will_become_visible' in self._context_callbacks:
-                for cp in self._context_callbacks['popup_menu_will_become_visible']:
+            if "popup_menu_will_become_visible" in self._context_callbacks:
+                for cp in self._context_callbacks["popup_menu_will_become_visible"]:
                     cp(source)

@@ -25,7 +25,8 @@ class BasicSwing extends JFrame implements WindowListener, ActionListener, ItemL
     JTable table;
     JButton update;
     private static String title;
-    private static int initialRows = 10;
+    private static int initialRows = 5;  // so it fits on any screen (with some space left)
+    private static double updateDelay = 0.0;
 
     public static void main(String[] args) {
         title = (args.length > 0) ? args[0] : "Hello World";
@@ -33,7 +34,13 @@ class BasicSwing extends JFrame implements WindowListener, ActionListener, ItemL
             try {
                 initialRows = Integer.parseInt(args[1]);
             } catch (NumberFormatException e) {
-                System.out.println("The second argument is not a valid integer. Using default value of 10.");
+                System.out.println("The second argument is not a valid integer. Using default value of 5.");
+            }
+        } else if (args.length > 2) {
+            try {
+                updateDelay = Float.parseFloat(args[2]);
+            } catch (NumberFormatException e) {
+                System.out.println("The third argument is not a valid float. Using default value of 0.0.");
             }
         }
 
@@ -149,14 +156,16 @@ class BasicSwing extends JFrame implements WindowListener, ActionListener, ItemL
         } else if (objText == "Update") {
             ta.append(dtf.format(now) + " " + "updating\n");
             try {
-                Thread.sleep(3000); // Sleep for 3 seconds (3000 milliseconds)
+                // Sleep for a few seconds. (0 by default)
+                Thread.sleep((int)(updateDelay * 1000.0));
             } catch (InterruptedException exc) {
                 exc.printStackTrace();
             }
             int rows = tableModel.getRowCount();
-            for (int i = rows; i < rows + 500; i++) {
+            for (int i = rows + 1; i <= rows + initialRows; i++) {
                 tableModel.addRow(
-                        new Object[] { "Cell" + i, "Random" + random.nextInt(100), random.nextBoolean() });
+                    new Object[] { "Cell " + i, "Random" + random.nextInt(100), random.nextBoolean() }
+                );
             }
         } else if (objText == "Exit cancel") {
             // TODO: close exit frame

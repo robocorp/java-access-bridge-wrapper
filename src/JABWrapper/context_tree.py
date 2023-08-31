@@ -50,10 +50,15 @@ class ContextNode:
         self.state = None
         self.visible_children_count = 0
         self.virtual_accessible_name = None
-        self.children: list[ContextNode] = []
+        self._children: list[ContextNode] = []
 
         # Populate the element with data and its children if enabled.
         self.refresh()
+
+    @property
+    def children(self):
+        with self._lock:
+            return self._children
 
     def _parse_context(self) -> None:
         logging.debug(f"Parsing element={self.context}")
@@ -125,7 +130,7 @@ class ContextNode:
             child_node = ContextNode(
                 self._jab_wrapper, child_context, self._lock, self.ancestry + 1
             )
-            self.children.append(child_node)
+            self._children.append(child_node)
 
     def refresh(self):
         """Refresh the current element and its children only.
@@ -133,11 +138,12 @@ class ContextNode:
         Useful when you want to refresh just a subtree of elements starting from the
         current one as root, instead of the entire app.
         """
-        self.state = None
-        self.children.clear()
-        self._parse_context()
-        if self._should_parse_children:
-            self._parse_children()
+        with self._lock:
+            self.state = None
+            self._children.clear()
+            self._parse_context()
+            if self._should_parse_children:
+                self._parse_children()
 
     def __repr__(self) -> str:
         """
@@ -192,7 +198,7 @@ class ContextNode:
 
     def get_search_element_tree(self) -> List[NodeLocator]:
         """
-        Returns node info for all searcheable elements.
+        Returns node info for all searchable elements.
         """
         nodes = list()
         nodes.append(
@@ -226,15 +232,10 @@ class ContextNode:
         if self._jab_wrapper.is_same_object(self.context, context):
             return self
         else:
-            for child in self.children:
+            for child in self._children:
                 node = child._get_node_by_context(context)
                 if node:
                     return node
-
-    def _update_node(self) -> None:
-        self.children = []
-        self._parse_context()
-        self._parse_children()
 
     def _match_attrs(self, search_elements: List[SearchElement]) -> bool:
         for search_element in search_elements:
@@ -263,7 +264,7 @@ class ContextNode:
             found = self._match_attrs(search_elements)
             if found:
                 elements.append(self)
-            for child in self.children:
+            for child in self._children:
                 child_elements = child.get_by_attrs(search_elements)
                 elements.extend(child_elements)
             return elements
@@ -320,17 +321,17 @@ class ContextNode:
         visible_children = []
         logging.debug(f"Expected visible children count={self.visible_children_count}")
         if self.visible_children_count > 0:
-            found_visible_children = self._jab_wrapper.get_visible_children(
+            visible_children_info = self._jab_wrapper.get_visible_children(
                 self.context, 0
             )
             logging.debug(f"Found visible children count={self.visible_children_count}")
-            for i in range(0, found_visible_children.returnedChildrenCount):
+            for i in range(0, visible_children_info.returnedChildrenCount):
                 visible_child = ContextNode(
                     self._jab_wrapper,
-                    found_visible_children.children[i],
+                    visible_children_info.children[i],
                     self._lock,
                     self.ancestry + 1,
-                    False,
+                    parse_children=False,
                 )
                 visible_children.append(visible_child)
         return visible_children
@@ -444,7 +445,7 @@ class ContextTree:
         with self._lock:
             node = self.root._get_node_by_context(source)
             if node:
-                node._update_node()
+                node.refresh()
                 logging.debug(f"Visible data changed for node tree={repr(node)}")
 
     @retry_callback
