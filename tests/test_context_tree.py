@@ -290,11 +290,13 @@ def update_and_refresh_table(context_info_tree):
     update_button.click()
 
     expected_total_children = initial_children
+    err = "children number changed without refresh"
     if not IGNORE_CALLBACKS:
         # Populating the table will trigger a callback which will automatically
         #  refresh it. We just need to wait a while and adjust our expectations.
         time.sleep(0.1)
         expected_total_children = 2 * initial_children
+        err = "children number didn't change after an automatic refresh"
     total_children = len(table.children)
     logger.info(
         "Total children (pre-refresh; callbacks: %s): %d",
@@ -303,14 +305,14 @@ def update_and_refresh_table(context_info_tree):
     )
     assert (
         total_children == expected_total_children
-    ), "children number changed without refresh"
+    ), err
 
     table.refresh()
     total_children = len(table.children)
     logger.info("Total children (post-refresh): %d", total_children)
     assert (
         total_children == 2 * initial_children
-    ), "children number didn't changed after refresh"
+    ), "children number didn't change after a manual refresh"
 
 
 def shutdown_app(jab_wrapper, context_info_tree):
