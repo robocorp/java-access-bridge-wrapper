@@ -1,0 +1,10 @@
+[flake8]
+ignore = W503, E203
+exclude =
+    .git,
+    .venv
+max-complexity = 10
+# Subject to change after deciding upon a standard.
+max-line-length = 120
+per-file-ignores =
+    */__init__.py: F401
