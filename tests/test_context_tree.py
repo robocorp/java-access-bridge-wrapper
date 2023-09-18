@@ -37,17 +37,13 @@ def dump(obj):
 def start_test_application(title):
     app_path = os.path.join(os.path.abspath(os.path.curdir), "tests", "test-app")
     # Compile the simple java program
-    returncode = subprocess.call(
-        ["makejar.bat"], shell=True, cwd=app_path, close_fds=True
-    )
+    returncode = subprocess.call(["makejar.bat"], shell=True, cwd=app_path, close_fds=True)
     if returncode > 0:
         logger.error(f"Failed to compile Swing application={returncode}")
         sys.exit(returncode)
     # Run the swing program in background
     logger.info("Opening Java Swing application")
-    subprocess.Popen(
-        ["java", "BasicSwing", title], shell=True, cwd=app_path, close_fds=True
-    )
+    subprocess.Popen(["java", "BasicSwing", title], shell=True, cwd=app_path, close_fds=True)
     # Wait a bit for application to open
     time.sleep(2)
 
@@ -170,9 +166,7 @@ def click_send_button(context_info_tree, text_area):
             SearchElement("indexInParent", 0),
         ]
     )[0]
-    logger.debug(
-        "Found element by role (push button) and name (Send): {}".format(send_button)
-    )
+    logger.debug("Found element by role (push button) and name (Send): {}".format(send_button))
     send_button.click()
     wait_until_text_contains(text_area, "default text")
 
@@ -180,20 +174,12 @@ def click_send_button(context_info_tree, text_area):
 def select_combobox(jab_wrapper, context_info_tree, text_area):
     # Select combobox
     logger.info("Selecting text area")
-    combo_box_menu = context_info_tree.get_by_attrs(
-        [SearchElement("role", "combo box")]
-    )[0]
-    sel_count = jab_wrapper.get_accessible_selection_count_from_context(
-        combo_box_menu.context
-    )
+    combo_box_menu = context_info_tree.get_by_attrs([SearchElement("role", "combo box")])[0]
+    sel_count = jab_wrapper.get_accessible_selection_count_from_context(combo_box_menu.context)
     assert sel_count == 1, f"Count 1!={sel_count}"
     jab_wrapper.add_accessible_selection_from_context(combo_box_menu.context, 1)
-    should_be_selected = jab_wrapper.is_accessible_child_selected_from_context(
-        combo_box_menu.context, 1
-    )
-    should_not_be_selected = jab_wrapper.is_accessible_child_selected_from_context(
-        combo_box_menu.context, 0
-    )
+    should_be_selected = jab_wrapper.is_accessible_child_selected_from_context(combo_box_menu.context, 1)
+    should_not_be_selected = jab_wrapper.is_accessible_child_selected_from_context(combo_box_menu.context, 0)
     assert should_be_selected, "was not selected"
     assert not should_not_be_selected, "was not not selected"
     jab_wrapper.clear_accessible_selection_from_context(combo_box_menu.context)
@@ -209,9 +195,7 @@ def click_clear_button(context_info_tree, text_area):
             SearchElement("indexInParent", 3),
         ]
     )[0]
-    logger.debug(
-        "Found element by role (push button) and name (Clear): {}".format(clear_button)
-    )
+    logger.debug("Found element by role (push button) and name (Clear): {}".format(clear_button))
     clear_button.click()
     wait_until_text_cleared(text_area)
 
@@ -220,9 +204,7 @@ def verify_table_content(context_info_tree):
     # Assert visible children are found under the table object
     table = context_info_tree.get_by_attrs([SearchElement("role", "table")])[0]
     visible_children = table.get_visible_children()
-    assert table.visible_children_count == len(
-        visible_children
-    ), "visible child count incorrect"
+    assert table.visible_children_count == len(visible_children), "visible child count incorrect"
 
 
 def open_menu_item_file(jab_wrapper, context_info_tree):
@@ -230,12 +212,8 @@ def open_menu_item_file(jab_wrapper, context_info_tree):
     menu_clicked = MenuClicked()
     jab_wrapper.register_callback("menu_selected", menu_clicked.menu_clicked_callback)
     logger.info("Opening Menu item FILE")
-    file_menu = context_info_tree.get_by_attrs(
-        [SearchElement("role", "menu"), SearchElement("name", "FILE")]
-    )[0]
-    logger.debug(
-        "Found element by role (push button) and name (FILE): {}".format(file_menu)
-    )
+    file_menu = context_info_tree.get_by_attrs([SearchElement("role", "menu"), SearchElement("name", "FILE")])[0]
+    logger.debug("Found element by role (push button) and name (FILE): {}".format(file_menu))
     file_menu.click()
     menu_clicked.wait_until_menu_clicked()
 
@@ -243,12 +221,8 @@ def open_menu_item_file(jab_wrapper, context_info_tree):
 def click_exit_menu(context_info_tree) -> ContextNode:
     # Click the exit menu
     logger.info("Clicking the exit menu")
-    exit_menu = context_info_tree.get_by_attrs(
-        [SearchElement("role", "menu item"), SearchElement("name", "Exit")]
-    )[0]
-    logger.debug(
-        "Found element by role (menu item) and name (Exit): {}".format(exit_menu)
-    )
+    exit_menu = context_info_tree.get_by_attrs([SearchElement("role", "menu item"), SearchElement("name", "Exit")])[0]
+    logger.debug("Found element by role (menu item) and name (Exit): {}".format(exit_menu))
     exit_menu.click()
     return exit_menu
 
@@ -258,15 +232,11 @@ def click_exit(jab_wrapper, exit_menu):
     logger.info("Switching to exit frame and clicking the exit button")
     jab_wrapper.switch_window_by_title("Exit")
     context_info_tree_for_exit_frame = ContextTree(jab_wrapper)
-    write_to_file(
-        "context.txt", "\n\n{}".format(repr(context_info_tree_for_exit_frame)), "a+"
-    )
+    write_to_file("context.txt", "\n\n{}".format(repr(context_info_tree_for_exit_frame)), "a+")
     exit_button = context_info_tree_for_exit_frame.get_by_attrs(
         [SearchElement("role", "push button"), SearchElement("name", "Exit ok")]
     )[0]
-    logger.debug(
-        "Found element by role (push button) and name (Exit ok): {}".format(exit_menu)
-    )
+    logger.debug("Found element by role (push button) and name (Exit ok): {}".format(exit_menu))
     exit_button.click()
 
 
@@ -303,16 +273,12 @@ def update_and_refresh_table(context_info_tree):
         "OFF" if IGNORE_CALLBACKS else "ON",
         total_children,
     )
-    assert (
-        total_children == expected_total_children
-    ), err
+    assert total_children == expected_total_children, err
 
     table.refresh()
     total_children = len(table.children)
     logger.info("Total children (post-refresh): %d", total_children)
-    assert (
-        total_children == 2 * initial_children
-    ), "children number didn't change after a manual refresh"
+    assert total_children == 2 * initial_children, "children number didn't change after a manual refresh"
 
 
 def shutdown_app(jab_wrapper, context_info_tree):

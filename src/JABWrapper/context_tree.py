@@ -62,16 +62,10 @@ class ContextNode:
 
     def _parse_context(self) -> None:
         logging.debug(f"Parsing element={self.context}")
-        self._aci: AccessibleContextInfo = self._jab_wrapper.get_context_info(
-            self.context
-        )
+        self._aci: AccessibleContextInfo = self._jab_wrapper.get_context_info(self.context)
         logging.debug(f"Parsed element info={self._aci}")
-        self.virtual_accessible_name = self._jab_wrapper.get_virtual_accessible_name(
-            self.context
-        )
-        self.visible_children_count = self._jab_wrapper.get_visible_children_count(
-            self.context
-        )
+        self.virtual_accessible_name = self._jab_wrapper.get_virtual_accessible_name(self.context)
+        self.visible_children_count = self._jab_wrapper.get_visible_children_count(self.context)
         self.text = AccessibleTextParser(self._aci)
         self.value = AccessibleValueParser(self._aci)
         self.actions = AccessibleActionsParser(self._aci)
@@ -127,9 +121,7 @@ class ContextNode:
     def _parse_children(self) -> None:
         for i in range(0, self._aci.childrenCount):
             child_context = self._jab_wrapper.get_child_context(self.context, i)
-            child_node = ContextNode(
-                self._jab_wrapper, child_context, self._lock, self.ancestry + 1
-            )
+            child_node = ContextNode(self._jab_wrapper, child_context, self._lock, self.ancestry + 1)
             self._children.append(child_node)
 
     def refresh(self):
@@ -321,9 +313,7 @@ class ContextNode:
         visible_children = []
         logging.debug(f"Expected visible children count={self.visible_children_count}")
         if self.visible_children_count > 0:
-            visible_children_info = self._jab_wrapper.get_visible_children(
-                self.context, 0
-            )
+            visible_children_info = self._jab_wrapper.get_visible_children(self.context, 0)
             logging.debug(f"Found visible children count={self.visible_children_count}")
             for i in range(0, visible_children_info.returnedChildrenCount):
                 visible_child = ContextNode(
@@ -358,64 +348,44 @@ class ContextTree:
         return self.root.get_search_element_tree()
 
     @retry_callback
-    def _property_change_cp(
-        self, source: JavaObject, property: str, old_value: str, new_value: str
-    ) -> None:
+    def _property_change_cp(self, source: JavaObject, property: str, old_value: str, new_value: str) -> None:
         with self._lock:
             node: ContextNode = self.root._get_node_by_context(source)
             if node:
                 setattr(node.context_info, property, new_value)
-                logging.debug(
-                    f"Property={property} changed from={old_value} to={new_value} for node={node}"
-                )
+                logging.debug(f"Property={property} changed from={old_value} to={new_value} for node={node}")
 
     @retry_callback
-    def _property_name_change_cp(
-        self, source: JavaObject, old_value: str, new_value: str
-    ) -> None:
+    def _property_name_change_cp(self, source: JavaObject, old_value: str, new_value: str) -> None:
         with self._lock:
             node: ContextNode = self.root._get_node_by_context(source)
             if node:
                 setattr(node.context_info, "name", new_value)
-                logging.debug(
-                    f"Name changed from={old_value} to={new_value} for node={node}"
-                )
+                logging.debug(f"Name changed from={old_value} to={new_value} for node={node}")
 
     @retry_callback
-    def _property_description_change_cp(
-        self, source: JavaObject, old_value: str, new_value: str
-    ) -> None:
+    def _property_description_change_cp(self, source: JavaObject, old_value: str, new_value: str) -> None:
         with self._lock:
             node: ContextNode = self.root._get_node_by_context(source)
             if node:
                 setattr(node.context_info, "description", new_value)
-                logging.debug(
-                    f"Description changed from={old_value} to={new_value} for node={node}"
-                )
+                logging.debug(f"Description changed from={old_value} to={new_value} for node={node}")
 
     @retry_callback
-    def _property_state_change_cp(
-        self, source: JavaObject, old_value: str, new_value: str
-    ) -> None:
+    def _property_state_change_cp(self, source: JavaObject, old_value: str, new_value: str) -> None:
         with self._lock:
             node: ContextNode = self.root._get_node_by_context(source)
             if node:
                 node.state = new_value
-                logging.debug(
-                    f"State changed from={old_value} to={new_value} for node={node}"
-                )
+                logging.debug(f"State changed from={old_value} to={new_value} for node={node}")
 
     @retry_callback
-    def _property_value_change_cp(
-        self, source: JavaObject, old_value: str, new_value: str
-    ) -> None:
+    def _property_value_change_cp(self, source: JavaObject, old_value: str, new_value: str) -> None:
         with self._lock:
             node: ContextNode = self.root._get_node_by_context(source)
             if node:
                 node.value.value = new_value
-                logging.debug(
-                    f"Value changed from={old_value} to={new_value} for node={node}"
-                )
+                logging.debug(f"Value changed from={old_value} to={new_value} for node={node}")
 
     @retry_callback
     def _property_selection_change_cp(self, source: JavaObject) -> None:
@@ -434,9 +404,7 @@ class ContextTree:
                 logging.debug(f"Text changed for node={node}")
 
     @retry_callback
-    def _property_caret_change_cp(
-        self, source: JavaObject, old_pos: int, new_pos: int
-    ) -> None:
+    def _property_caret_change_cp(self, source: JavaObject, old_pos: int, new_pos: int) -> None:
         # Caret information is not stored in the node component
         logging.debug("Property caret change event ignored")
 
@@ -449,9 +417,7 @@ class ContextTree:
                 logging.debug(f"Visible data changed for node tree={repr(node)}")
 
     @retry_callback
-    def _property_child_change_cp(
-        self, source: JavaObject, old_child: JavaObject, new_child: JavaObject
-    ) -> None:
+    def _property_child_change_cp(self, source: JavaObject, old_child: JavaObject, new_child: JavaObject) -> None:
         # Not needed to track as the visibility change event handles the coordinate update
         logging.debug("Property child change event ignored")
 
@@ -463,9 +429,7 @@ class ContextTree:
         logging.debug("Property active descendent change event ignored")
 
     @retry_callback
-    def _property_table_model_change_cp(
-        self, source: JavaObject, old_value: str, new_value: str
-    ) -> None:
+    def _property_table_model_change_cp(self, source: JavaObject, old_value: str, new_value: str) -> None:
         # TODO: Add table model parsing
         logging.debug("Property table model change event ignored")
 
@@ -552,40 +516,20 @@ class ContextTree:
 
         # Property change event handlers
         self._jab_wrapper.register_callback("property_change", self._property_change_cp)
-        self._jab_wrapper.register_callback(
-            "property_name_change", self._property_name_change_cp
-        )
-        self._jab_wrapper.register_callback(
-            "property_description_change", self._property_description_change_cp
-        )
-        self._jab_wrapper.register_callback(
-            "property_state_change", self._property_state_change_cp
-        )
-        self._jab_wrapper.register_callback(
-            "property_value_change", self._property_value_change_cp
-        )
-        self._jab_wrapper.register_callback(
-            "property_selection_change", self._property_selection_change_cp
-        )
-        self._jab_wrapper.register_callback(
-            "property_text_change", self._property_text_change_cp
-        )
-        self._jab_wrapper.register_callback(
-            "property_caret_change", self._property_caret_change_cp
-        )
-        self._jab_wrapper.register_callback(
-            "property_visible_data_change", self._visible_data_change_cp
-        )
-        self._jab_wrapper.register_callback(
-            "property_child_change", self._property_child_change_cp
-        )
+        self._jab_wrapper.register_callback("property_name_change", self._property_name_change_cp)
+        self._jab_wrapper.register_callback("property_description_change", self._property_description_change_cp)
+        self._jab_wrapper.register_callback("property_state_change", self._property_state_change_cp)
+        self._jab_wrapper.register_callback("property_value_change", self._property_value_change_cp)
+        self._jab_wrapper.register_callback("property_selection_change", self._property_selection_change_cp)
+        self._jab_wrapper.register_callback("property_text_change", self._property_text_change_cp)
+        self._jab_wrapper.register_callback("property_caret_change", self._property_caret_change_cp)
+        self._jab_wrapper.register_callback("property_visible_data_change", self._visible_data_change_cp)
+        self._jab_wrapper.register_callback("property_child_change", self._property_child_change_cp)
         self._jab_wrapper.register_callback(
             "property_active_descendent_change",
             self._property_active_descendent_change_cp,
         )
-        self._jab_wrapper.register_callback(
-            "property_table_model_change", self._property_table_model_change_cp
-        )
+        self._jab_wrapper.register_callback("property_table_model_change", self._property_table_model_change_cp)
         # Menu event handlers
         self._jab_wrapper.register_callback("menu_selected", self._menu_selected_cp)
         self._jab_wrapper.register_callback("menu_deselected", self._menu_deselected_cp)
@@ -602,16 +546,12 @@ class ContextTree:
         self._jab_wrapper.register_callback("mouse_pressed", self._mouse_pressed_cp)
         self._jab_wrapper.register_callback("mouse_released", self._mouse_released_cp)
         # Popup menu events
-        self._jab_wrapper.register_callback(
-            "popup_menu_canceled", self._popup_menu_canceled_cp
-        )
+        self._jab_wrapper.register_callback("popup_menu_canceled", self._popup_menu_canceled_cp)
         self._jab_wrapper.register_callback(
             "popup_menu_will_become_invisible",
             self._popup_menu_will_become_invisible_cp,
         )
-        self._jab_wrapper.register_callback(
-            "popup_menu_will_become_visible", self._popup_menu_will_become_visible_cp
-        )
+        self._jab_wrapper.register_callback("popup_menu_will_become_visible", self._popup_menu_will_become_visible_cp)
 
     def get_by_attrs(self, search_elements: List[SearchElement]) -> List[ContextNode]:
         """
