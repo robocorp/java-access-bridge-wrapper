@@ -16,13 +16,16 @@ def poetry(ctx: Context, command: str, **kwargs):
 
 @task(
     help={
-        "verbose": "Display detailed information with this on."
+        "verbose": "Display detailed information with this on.",
+        "install": "Also installs the package in development mode at the end."
     },
 )
-def update(ctx, verbose: bool = False):
+def update(ctx, verbose: bool = False, install: bool = True):
     """Updates the lock file based on the pinned versions."""
     poetry_opts = "-vvv" if verbose else ""
     poetry(ctx, f"update {poetry_opts}")
+    if install:
+        poetry(ctx, f"install {poetry_opts}")
 
 
 @task(
