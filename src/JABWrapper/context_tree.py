@@ -526,8 +526,7 @@ class ContextTree:
         self._jab_wrapper.register_callback("property_visible_data_change", self._visible_data_change_cp)
         self._jab_wrapper.register_callback("property_child_change", self._property_child_change_cp)
         self._jab_wrapper.register_callback(
-            "property_active_descendent_change",
-            self._property_active_descendent_change_cp,
+            "property_active_descendent_change", self._property_active_descendent_change_cp
         )
         self._jab_wrapper.register_callback("property_table_model_change", self._property_table_model_change_cp)
         # Menu event handlers
@@ -548,8 +547,7 @@ class ContextTree:
         # Popup menu events
         self._jab_wrapper.register_callback("popup_menu_canceled", self._popup_menu_canceled_cp)
         self._jab_wrapper.register_callback(
-            "popup_menu_will_become_invisible",
-            self._popup_menu_will_become_invisible_cp,
+            "popup_menu_will_become_invisible", self._popup_menu_will_become_invisible_cp
         )
         self._jab_wrapper.register_callback("popup_menu_will_become_visible", self._popup_menu_will_become_visible_cp)
 

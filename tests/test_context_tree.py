@@ -160,11 +160,7 @@ def click_send_button(context_info_tree, text_area):
     # Click the send button
     logger.info("Clicking the send button")
     send_button = context_info_tree.get_by_attrs(
-        [
-            SearchElement("role", "push button"),
-            SearchElement("name", "Send"),
-            SearchElement("indexInParent", 0),
-        ]
+        [SearchElement("role", "push button"), SearchElement("name", "Send"), SearchElement("indexInParent", 0)]
     )[0]
     logger.debug("Found element by role (push button) and name (Send): {}".format(send_button))
     send_button.click()
@@ -189,11 +185,7 @@ def click_clear_button(context_info_tree, text_area):
     # Click the clear button
     logger.info("Clicking the clear button")
     clear_button = context_info_tree.get_by_attrs(
-        [
-            SearchElement("role", "push button", True),
-            SearchElement("name", "Clear"),
-            SearchElement("indexInParent", 3),
-        ]
+        [SearchElement("role", "push button", True), SearchElement("name", "Clear"), SearchElement("indexInParent", 3)]
     )[0]
     logger.debug("Found element by role (push button) and name (Clear): {}".format(clear_button))
     clear_button.click()
@@ -241,20 +233,13 @@ def click_exit(jab_wrapper, exit_menu):
 
 
 def update_and_refresh_table(context_info_tree):
-    table = context_info_tree.get_by_attrs(
-        [
-            SearchElement("role", "table"),
-        ]
-    )[0]
+    table = context_info_tree.get_by_attrs([SearchElement("role", "table")])[0]
     logger.debug("Found table: %s", table)
     initial_children = len(table.children)
     logger.info("Initial children: %d", initial_children)
 
     update_button = context_info_tree.get_by_attrs(
-        [
-            SearchElement("role", "push button"),
-            SearchElement("name", "Update"),
-        ]
+        [SearchElement("role", "push button"), SearchElement("name", "Update")]
     )[0]
     logger.debug("Found 'Update' button: %s", update_button)
     update_button.click()
@@ -268,11 +253,7 @@ def update_and_refresh_table(context_info_tree):
         expected_total_children = 2 * initial_children
         err = "children number didn't change after an automatic refresh"
     total_children = len(table.children)
-    logger.info(
-        "Total children (pre-refresh; callbacks: %s): %d",
-        "OFF" if IGNORE_CALLBACKS else "ON",
-        total_children,
-    )
+    logger.info("Total children (pre-refresh; callbacks: %s): %d", "OFF" if IGNORE_CALLBACKS else "ON", total_children)
     assert total_children == expected_total_children, err
 
     table.refresh()
