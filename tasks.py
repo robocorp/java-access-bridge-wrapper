@@ -10,7 +10,7 @@ from invoke import Context, task
 
 
 def poetry(ctx: Context, command: str, **kwargs):
-    """Executes poetry commands on the shell."""
+    """Executes Poetry commands on the shell."""
     return ctx.run(f"poetry {command}", **kwargs)
 
 
