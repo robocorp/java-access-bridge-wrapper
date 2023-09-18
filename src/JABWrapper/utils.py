@@ -1,6 +1,5 @@
-import time
 import logging
-
+import time
 
 CALLBACK_RETRIES = 10
 
@@ -12,7 +11,9 @@ def log_exec_time(name):
             func(*args, **kwargs)
             stop = time.perf_counter()
             logging.debug(f"Executed {name} in {(stop - start):.04f}s")
+
         return exec_time
+
     return decorator
 
 
@@ -27,6 +28,7 @@ def retry_callback(func):
                     logging.error(f"Callback failure={e}")
                 else:
                     time.sleep(0.01)
+
     return execute
 
 

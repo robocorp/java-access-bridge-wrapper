@@ -1,20 +1,20 @@
+import re
 import sys
 from typing import List
-import re
-
 
 from JABWrapper.context_tree import ContextTree, SearchElement
 from JABWrapper.jab_types import (
     AccessibleContextInfo,
-    AccessibleKeyBindings,
     AccessibleIcons,
-    AccessibleTableInfo
+    AccessibleKeyBindings,
+    AccessibleTableInfo,
 )
-
 
 MATCH = re.compile(r"^(\s+)?Role=(.*?), Name=(.*?), VAN=(.*?), Desc=?(.*?)")
 
-MATCH_OPTION = re.compile(r"^[\|\s]*?role:(.*?); name:(.*?); virtual_accessible_name:(.*?); description:?(.*?); ancestry:(\d+)*")
+MATCH_OPTION = re.compile(
+    r"^[\|\s]*?role:(.*?); name:(.*?); virtual_accessible_name:(.*?); description:?(.*?); ancestry:(\d+)*"
+)
 
 IntegerLocatorTypes = ["x", "y", "width", "height", "indexInParent", "childrentCount"]
 
@@ -57,7 +57,7 @@ class Node:
     def __str__(self):
         string = str(self.info)
         for child in self.children:
-            string += f'\n{child}'
+            string += f"\n{child}"
         return string
 
 
@@ -112,9 +112,9 @@ class FakeJabWrapper:
             context.info.name,
             context.info.desc,
             context.info.role,
-            '',
-            '',
-            '',
+            "",
+            "",
+            "",
             0,
             len(context.children),
             0,
@@ -123,7 +123,7 @@ class FakeJabWrapper:
             False,
             False,
             False,
-            False
+            False,
         )
 
     def get_virtual_accessible_name(self, context):
@@ -155,7 +155,7 @@ class ContextTreeFaker:
 
 
 class LocatorSimulator:
-    def __init__(self, locator_filename: str = '', locator: str = ''):
+    def __init__(self, locator_filename: str = "", locator: str = ""):
         self._locator_filename = locator_filename
         self.faker = None
 
@@ -178,9 +178,7 @@ class LocatorSimulator:
                     try:
                         parts[1] = int(parts[1])
                     except ValueError as err:
-                        raise Exception(
-                            "Locator '%s' needs to be of 'integer' type" % parts[0]
-                        ) from err
+                        raise Exception("Locator '%s' needs to be of 'integer' type" % parts[0]) from err
                 lvl_search.append(SearchElement(parts[0], parts[1], strict=strict_mode))
             searches.append(lvl_search)
         return searches
@@ -199,14 +197,13 @@ class LocatorSimulator:
                 elements = sub_matches
         if index and len(elements) > (index + 1):
             raise AttributeError(
-                "Locator '%s' returned only %s elements (can't index element at %s)"
-                % (locator, len(elements), index)
+                "Locator '%s' returned only %s elements (can't index element at %s)" % (locator, len(elements), index)
             )
         return elements[index] if index else elements
 
-    def parse_element_tree(self, locator_filename=''):
+    def parse_element_tree(self, locator_filename=""):
         if not locator_filename and not self._locator_filename:
-            raise Exception('Please provide locator file path')
+            raise Exception("Please provide locator file path")
         if locator_filename:
             self._locator_filename = locator_filename
         output = read_output_file(self._locator_filename)
@@ -215,18 +212,18 @@ class LocatorSimulator:
 
     def find_element(self, locator):
         if not self.faker:
-            raise Exception('Please parse element tree first')
+            raise Exception("Please parse element tree first")
         return self._find_elements(locator)
 
 
 def main():
     output_file = sys.argv[1]
-    locator = ' '.join(sys.argv[2:])
+    locator = " ".join(sys.argv[2:])
     simulator = LocatorSimulator(output_file)
     simulator.parse_element_tree()
     for element in simulator.find_element(locator):
         print(str(element))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

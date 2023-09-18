@@ -1,86 +1,77 @@
-import os
-import sys
-import re
 import logging
-
-import win32process
-
+import os
+import re
+import sys
 from ctypes import (
     CFUNCTYPE,
+    POINTER,
+    WINFUNCTYPE,
+    WinError,
+    byref,
+    c_int,
     c_long,
     c_short,
     c_void_p,
     c_wchar,
     c_wchar_p,
-    wintypes,
-    POINTER,
-    byref,
-    windll,
-    c_int,
     cdll,
-    WINFUNCTYPE,
-    WinError,
-    create_unicode_buffer
+    create_unicode_buffer,
+    windll,
+    wintypes,
 )
-
+from dataclasses import dataclass
 from typing import Callable, List, Tuple
 
+import win32process
+
 from JABWrapper.jab_types import (
+    MAX_STRING_SIZE,
+    SHORT_STRING_SIZE,
     AccessBridgeVersionInfo,
     AccessibleActions,
     AccessibleActionsToDo,
+    AccessibleContextInfo,
     AccessibleHyperlinkInfo,
     AccessibleHypertextInfo,
     AccessibleIcons,
     AccessibleKeyBindings,
     AccessibleRelationSetInfo,
     AccessibleTableCellInfo,
-    AccessibleTextAttributesInfo,
     AccessibleTableInfo,
+    AccessibleTextAttributesInfo,
+    AccessibleTextInfo,
     AccessibleTextItemsInfo,
     AccessibleTextRectInfo,
-    JavaObject,
-    AccessibleContextInfo,
-    AccessibleTextInfo,
     AccessibleTextSelectionInfo,
+    JavaObject,
     VisibleChildrenInfo,
-    MAX_STRING_SIZE,
-    SHORT_STRING_SIZE
 )
 from JABWrapper.utils import ReleaseEvent
-
-from dataclasses import dataclass
-
 
 log_path = os.path.join(os.path.abspath(os.getenv("ROBOT_ARTIFACTS", "")), "jab_wrapper.log")
 if not os.path.exists(os.path.dirname(log_path)):
     os.mkdir(os.path.dirname(log_path))
 logging_file_handler = logging.FileHandler(log_path, "w", "utf-8")
-logging_file_handler.setFormatter(logging.Formatter("%(asctime)s [%(threadName)s] {%(filename)s:%(lineno)d} [%(levelname)s] %(message)s"))
+logging_file_handler.setFormatter(
+    logging.Formatter("%(asctime)s [%(threadName)s] {%(filename)s:%(lineno)d} [%(levelname)s] %(message)s")
+)
 logging_file_handler.setLevel(logging.DEBUG)
 
 logging_stream_handler = logging.StreamHandler(sys.stdout)
-logging_stream_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] {%(filename)s:%(lineno)d} %(message)s"))
+logging_stream_handler.setFormatter(
+    logging.Formatter("%(asctime)s [%(levelname)s] {%(filename)s:%(lineno)d} %(message)s")
+)
 logging_stream_handler.setLevel(logging.INFO)
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    handlers=[logging_file_handler, logging_stream_handler]
-)
+logging.basicConfig(level=logging.DEBUG, handlers=[logging_file_handler, logging_stream_handler])
 
 
 # https://stackoverflow.com/questions/21175922/enumerating-windows-trough-ctypes-in-python
 WNDENUMPROC = WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
 user32 = windll.user32
-user32.EnumWindows.argtypes = [
-    WNDENUMPROC,
-    wintypes.LPARAM]
-user32.GetWindowTextLengthW.argtypes = [
-    wintypes.HWND]
-user32.GetWindowTextW.argtypes = [
-    wintypes.HWND,
-    wintypes.LPWSTR,
-    c_int]
+user32.EnumWindows.argtypes = [WNDENUMPROC, wintypes.LPARAM]
+user32.GetWindowTextLengthW.argtypes = [wintypes.HWND]
+user32.GetWindowTextW.argtypes = [wintypes.HWND, wintypes.LPWSTR, c_int]
 
 
 PropertyChangeFP = CFUNCTYPE(None, c_long, JavaObject, JavaObject, c_wchar_p, c_wchar_p, c_wchar_p)
@@ -177,9 +168,9 @@ class JavaAccessBridgeWrapper:
 
         if "RC_JAVA_ACCESS_BRIDGE_DLL" not in os.environ:
             raise OSError("Environment variable: RC_JAVA_ACCESS_BRIDGE_DLL not found")
-        if not os.path.isfile(os.path.normpath(os.environ['RC_JAVA_ACCESS_BRIDGE_DLL'])):
+        if not os.path.isfile(os.path.normpath(os.environ["RC_JAVA_ACCESS_BRIDGE_DLL"])):
             raise FileNotFoundError(f"File not found: {os.environ['RC_JAVA_ACCESS_BRIDGE_DLL']}")
-        self._wab: cdll = cdll.LoadLibrary(os.path.normpath(os.environ['RC_JAVA_ACCESS_BRIDGE_DLL']))
+        self._wab: cdll = cdll.LoadLibrary(os.path.normpath(os.environ["RC_JAVA_ACCESS_BRIDGE_DLL"]))
         logging.debug("WindowsAccessBridge loaded succesfully")
         self._define_functions()
         if not self.ignore_callbacks:
@@ -244,7 +235,13 @@ class JavaAccessBridgeWrapper:
         self._wab.getAccessibleTableInfo.argtypes = [c_long, JavaObject, POINTER(AccessibleTableInfo)]
         self._wab.getAccessibleTableInfo.restype = wintypes.BOOL
         # BOOL getAccessibleTableCellInfo(long vmID, AccessibleTable accessibleTable, int row, int column, AccessibleTableCellInfo *tableCellInfo)
-        self._wab.getAccessibleTableCellInfo.argtypes = [c_long, JavaObject, c_int, c_int, POINTER(AccessibleTableCellInfo)]
+        self._wab.getAccessibleTableCellInfo.argtypes = [
+            c_long,
+            JavaObject,
+            c_int,
+            c_int,
+            POINTER(AccessibleTableCellInfo),
+        ]
         self._wab.getAccessibleTableCellInfo.restype = wintypes.BOOL
         # BOOL getAccessibleTableRowHeader(long vmID, AccessibleContext context, AccessibleTableInfo *tableInfo)
         self._wab.getAccessibleTableRowHeader.argtypes = [c_long, JavaObject, POINTER(AccessibleTableInfo)]
@@ -334,7 +331,12 @@ class JavaAccessBridgeWrapper:
         self._wab.getAccessibleTextSelectionInfo.argtypes = [c_long, JavaObject, POINTER(AccessibleTextSelectionInfo)]
         self._wab.getAccessibleTextSelectionInfo.restype = wintypes.BOOL
         # BOOL getAccessibleTextAttributes(long vmID, AccessibleContext context, int index, AccessibleTextAttributesInfo *attributesInfo)
-        self._wab.getAccessibleTextAttributes.argtypes = [c_long, JavaObject, c_int, POINTER(AccessibleTextAttributesInfo)]
+        self._wab.getAccessibleTextAttributes.argtypes = [
+            c_long,
+            JavaObject,
+            c_int,
+            POINTER(AccessibleTextAttributesInfo),
+        ]
         self._wab.getAccessibleTextAttributes.restype = wintypes.BOOL
         # BOOL getAccessibleTextRect(long vmID, AccessibleContext context, AccessibleTextRectInfo *rectInfo, int index)
         self._wab.getAccessibleTextRect.argtypes = [c_long, JavaObject, POINTER(AccessibleTextRectInfo), c_int]
@@ -469,26 +471,59 @@ class JavaAccessBridgeWrapper:
 
     def _set_callbacks(self) -> None:
         # Property events
-        self._wab.setPropertyChangeFP(self._get_callback_func("setPropertyChangeFP", PropertyChangeFP, self._property_change))
-        self._wab.setPropertyNameChangeFP(self._get_callback_func("setPropertyNameChangeFP", PropertyNameChangeFP, self._property_name_change))
-        self._wab.setPropertyDescriptionChangeFP(self._get_callback_func("setPropertyDescriptionChangeFP", PropertyDescriptionChangeFP,
-                                                                         self._property_description_change))
-        self._wab.setPropertyStateChangeFP(self._get_callback_func("setPropertyStateChangeFP", PropertStateChangeFP, self._property_state_change))
-        self._wab.setPropertyValueChangeFP(self._get_callback_func("setPropertyValueChangeFP", PropertyValueChangeFP, self._property_value_change))
-        self._wab.setPropertySelectionChangeFP(self._get_callback_func("setPropertySelectionChangeFP", PropertySelectionChangeFP,
-                                                                       self._property_selection_change))
-        self._wab.setPropertyTextChangeFP(self._get_callback_func("setPropertyTextChangeFP", PropertyTextChangedFP, self._property_text_change))
-        self._wab.setPropertyCaretChangeFP(self._get_callback_func("setPropertyCaretChangeFP", PropertyCaretChangeFP, self._property_caret_change))
-        self._wab.setPropertyVisibleDataChangeFP(self._get_callback_func("setPropertyVisibleDataChangeFP", PropertyVisibleDataChangeFP,
-                                                                         self._property_visible_data_change))
-        self._wab.setPropertyChildChangeFP(self._get_callback_func("setPropertyChildChangeFP", PropertyChildChangeFP, self._property_child_change))
-        self._wab.setPropertyActiveDescendentChangeFP(self._get_callback_func("setPropertyActiveDescendentChangeFP", PropertyActiveDescendentChangeFP,
-                                                                              self._property_active_descendent_change))
-        self._wab.setPropertyTableModelChangeFP(self._get_callback_func("setPropertyTableModelChangeFP", PropertyTableModelChangeFP,
-                                                                        self._property_table_model_change))
+        self._wab.setPropertyChangeFP(
+            self._get_callback_func("setPropertyChangeFP", PropertyChangeFP, self._property_change)
+        )
+        self._wab.setPropertyNameChangeFP(
+            self._get_callback_func("setPropertyNameChangeFP", PropertyNameChangeFP, self._property_name_change)
+        )
+        self._wab.setPropertyDescriptionChangeFP(
+            self._get_callback_func(
+                "setPropertyDescriptionChangeFP", PropertyDescriptionChangeFP, self._property_description_change
+            )
+        )
+        self._wab.setPropertyStateChangeFP(
+            self._get_callback_func("setPropertyStateChangeFP", PropertStateChangeFP, self._property_state_change)
+        )
+        self._wab.setPropertyValueChangeFP(
+            self._get_callback_func("setPropertyValueChangeFP", PropertyValueChangeFP, self._property_value_change)
+        )
+        self._wab.setPropertySelectionChangeFP(
+            self._get_callback_func(
+                "setPropertySelectionChangeFP", PropertySelectionChangeFP, self._property_selection_change
+            )
+        )
+        self._wab.setPropertyTextChangeFP(
+            self._get_callback_func("setPropertyTextChangeFP", PropertyTextChangedFP, self._property_text_change)
+        )
+        self._wab.setPropertyCaretChangeFP(
+            self._get_callback_func("setPropertyCaretChangeFP", PropertyCaretChangeFP, self._property_caret_change)
+        )
+        self._wab.setPropertyVisibleDataChangeFP(
+            self._get_callback_func(
+                "setPropertyVisibleDataChangeFP", PropertyVisibleDataChangeFP, self._property_visible_data_change
+            )
+        )
+        self._wab.setPropertyChildChangeFP(
+            self._get_callback_func("setPropertyChildChangeFP", PropertyChildChangeFP, self._property_child_change)
+        )
+        self._wab.setPropertyActiveDescendentChangeFP(
+            self._get_callback_func(
+                "setPropertyActiveDescendentChangeFP",
+                PropertyActiveDescendentChangeFP,
+                self._property_active_descendent_change,
+            )
+        )
+        self._wab.setPropertyTableModelChangeFP(
+            self._get_callback_func(
+                "setPropertyTableModelChangeFP", PropertyTableModelChangeFP, self._property_table_model_change
+            )
+        )
         # Menu events
         self._wab.setMenuSelectedFP(self._get_callback_func("setMenuSelectedFP", MenuSelectedFP, self._menu_selected))
-        self._wab.setMenuDeselectedFP(self._get_callback_func("setMenuDeselectedFP", MenuDeselectedFP, self._menu_deselected))
+        self._wab.setMenuDeselectedFP(
+            self._get_callback_func("setMenuDeselectedFP", MenuDeselectedFP, self._menu_deselected)
+        )
         self._wab.setMenuCanceledFP(self._get_callback_func("setMenuCanceledFP", MenuCanceledFP, self._menu_canceled))
         # Focus events
         self._wab.setFocusGainedFP(self._get_callback_func("setFocusGainedFP", FocusGainedFP, self._focus_gained))
@@ -500,13 +535,25 @@ class JavaAccessBridgeWrapper:
         self._wab.setMouseEnteredFP(self._get_callback_func("SetMouseEnteredFP", MouseEnteredFP, self._mouse_entered))
         self._wab.setMouseExitedFP(self._get_callback_func("setMouseExitedFP", MouseExitedFP, self._mouse_exited))
         self._wab.setMousePressedFP(self._get_callback_func("setMousePressedFP", MousePressedFP, self._mouse_pressed))
-        self._wab.setMouseReleasedFP(self._get_callback_func("setMouseReleasedFP", MouseReleasedFP, self._mouse_released))
+        self._wab.setMouseReleasedFP(
+            self._get_callback_func("setMouseReleasedFP", MouseReleasedFP, self._mouse_released)
+        )
         # Popup menu events
-        self._wab.setPopupMenuCanceledFP(self._get_callback_func("setPopupMenuCanceledFP", PopupMenuCanceledFP, self._popup_menu_canceled))
-        self._wab.setPopupMenuWillBecomeInvisibleFP(self._get_callback_func("setPopupMenuWillBecomeInvisibleFP", PopupMenuWillBecomeInvisibleFP,
-                                                    self._popup_menu_will_become_invisible))
-        self._wab.setPopupMenuWillBecomeVisibleFP(self._get_callback_func("setPopupMenuWillBecomeVisibleFP", PopupMenuWillBecomeVisibleFP,
-                                                  self._popup_menu_will_become_visible))
+        self._wab.setPopupMenuCanceledFP(
+            self._get_callback_func("setPopupMenuCanceledFP", PopupMenuCanceledFP, self._popup_menu_canceled)
+        )
+        self._wab.setPopupMenuWillBecomeInvisibleFP(
+            self._get_callback_func(
+                "setPopupMenuWillBecomeInvisibleFP",
+                PopupMenuWillBecomeInvisibleFP,
+                self._popup_menu_will_become_invisible,
+            )
+        )
+        self._wab.setPopupMenuWillBecomeVisibleFP(
+            self._get_callback_func(
+                "setPopupMenuWillBecomeVisibleFP", PopupMenuWillBecomeVisibleFP, self._popup_menu_will_become_visible
+            )
+        )
 
     def _remove_callbacks(self) -> None:
         # Property events
@@ -605,13 +652,15 @@ class JavaAccessBridgeWrapper:
         if not self._hwnd:
             raise Exception(f"Window not found={title}")
 
-        logging.info("Found Java window text={} pid={} hwnd={} vmID={} context={}\n".format(
-            java_window.title,
-            java_window.pid,
-            self._hwnd,
-            self._vmID,
-            self.context,
-        ))
+        logging.info(
+            "Found Java window text={} pid={} hwnd={} vmID={} context={}\n".format(
+                java_window.title,
+                java_window.pid,
+                self._hwnd,
+                self._vmID,
+                self.context,
+            )
+        )
 
         return java_window.pid
 
@@ -651,13 +700,15 @@ class JavaAccessBridgeWrapper:
         if not self._hwnd:
             raise Exception(f"Window not found={pid}")
 
-        logging.info("Found Java window text={} pid={} hwnd={} vmID={} context={}\n".format(
-            java_window.title,
-            java_window.pid,
-            self._hwnd,
-            self._vmID,
-            self.context,
-        ))
+        logging.info(
+            "Found Java window text={} pid={} hwnd={} vmID={} context={}\n".format(
+                java_window.title,
+                java_window.pid,
+                self._hwnd,
+                self._vmID,
+                self.context,
+            )
+        )
 
         return java_window.pid
 
@@ -762,7 +813,9 @@ class JavaAccessBridgeWrapper:
             raise APIException("Failed to get accessible table info")
         return table_info
 
-    def get_accessible_table_cell_info(self, table_context: JavaObject, row: int, column: int) -> AccessibleTableCellInfo:
+    def get_accessible_table_cell_info(
+        self, table_context: JavaObject, row: int, column: int
+    ) -> AccessibleTableCellInfo:
         """
         Get table cell information.
 
@@ -1717,7 +1770,7 @@ class JavaAccessBridgeWrapper:
         visible_children = VisibleChildrenInfo()
         ok = self._wab.getVisibleChildren(self._vmID, context, start_index, byref(visible_children))
         if not ok:
-            raise APIException('Failed to get visible children info')
+            raise APIException("Failed to get visible children info")
         return visible_children
 
     def register_callback(self, name: str, callback: Callable[[JavaObject], None]) -> None:
@@ -1776,165 +1829,181 @@ class JavaAccessBridgeWrapper:
     """
     Define the callback handlers
     """
+
     def _get_callback_func(self, name, wrapper, callback):
         def func(*args):
             callback(*args)
+
         runner = wrapper(func)
         setattr(self, name, runner)
         return runner
 
     def _property_change(self, vmID: c_long, event: JavaObject, source: JavaObject, property, old_value, new_value):
         with ReleaseEvent(self, vmID, "property_change", event, source):
-            if 'property_change' in self._context_callbacks:
-                for cp in self._context_callbacks['property_change']:
+            if "property_change" in self._context_callbacks:
+                for cp in self._context_callbacks["property_change"]:
                     cp(source, property, old_value, new_value)
 
-    def _property_name_change(self, vmID: c_long, event: JavaObject, source: JavaObject, old_value: str, new_value: str):
+    def _property_name_change(
+        self, vmID: c_long, event: JavaObject, source: JavaObject, old_value: str, new_value: str
+    ):
         with ReleaseEvent(self, vmID, "property_name_change", event, source):
-            if 'property_name_change' in self._context_callbacks:
-                for cp in self._context_callbacks['property_name_change']:
+            if "property_name_change" in self._context_callbacks:
+                for cp in self._context_callbacks["property_name_change"]:
                     cp(source, old_value, new_value)
 
-    def _property_description_change(self, vmID: c_long, event: JavaObject, source: JavaObject, old_value: str, new_value: str):
+    def _property_description_change(
+        self, vmID: c_long, event: JavaObject, source: JavaObject, old_value: str, new_value: str
+    ):
         with ReleaseEvent(self, vmID, "property_description_change", event, source):
-            if 'property_description_change' in self._context_callbacks:
-                for cp in self._context_callbacks['property_description_change']:
+            if "property_description_change" in self._context_callbacks:
+                for cp in self._context_callbacks["property_description_change"]:
                     cp(source, old_value, new_value)
 
-    def _property_state_change(self, vmID: c_long, event: JavaObject, source: JavaObject, old_value: str, new_value: str):
+    def _property_state_change(
+        self, vmID: c_long, event: JavaObject, source: JavaObject, old_value: str, new_value: str
+    ):
         with ReleaseEvent(self, vmID, "property_state_change", event, source):
-            if 'property_state_change' in self._context_callbacks:
-                for cp in self._context_callbacks['property_state_change']:
+            if "property_state_change" in self._context_callbacks:
+                for cp in self._context_callbacks["property_state_change"]:
                     cp(source, old_value, new_value)
 
-    def _property_value_change(self, vmID: c_long, event: JavaObject, source: JavaObject, old_value: str, new_value: str):
+    def _property_value_change(
+        self, vmID: c_long, event: JavaObject, source: JavaObject, old_value: str, new_value: str
+    ):
         with ReleaseEvent(self, vmID, "property_value_change", event, source):
-            if 'property_value_change' in self._context_callbacks:
-                for cp in self._context_callbacks['property_value_change']:
+            if "property_value_change" in self._context_callbacks:
+                for cp in self._context_callbacks["property_value_change"]:
                     cp(source, old_value, new_value)
 
     def _property_selection_change(self, vmID: c_long, event: JavaObject, source: JavaObject):
         with ReleaseEvent(self, vmID, "property_selection_change", event, source):
-            if 'property_selection_change' in self._context_callbacks:
-                for cp in self._context_callbacks['property_selection_change']:
+            if "property_selection_change" in self._context_callbacks:
+                for cp in self._context_callbacks["property_selection_change"]:
                     cp(source)
 
     def _property_text_change(self, vmID: c_long, event: JavaObject, source: JavaObject):
         with ReleaseEvent(self, vmID, "property_text_change", event, source):
-            if 'property_text_change' in self._context_callbacks:
-                for cp in self._context_callbacks['property_text_change']:
+            if "property_text_change" in self._context_callbacks:
+                for cp in self._context_callbacks["property_text_change"]:
                     cp(source)
 
     def _property_caret_change(self, vmID: c_long, event: JavaObject, source: JavaObject, old_pos: int, new_pos: int):
         with ReleaseEvent(self, vmID, "set_property_caret_change", event, source):
-            if 'set_property_caret_change' in self._context_callbacks:
-                for cp in self._context_callbacks['set_property_caret_change']:
+            if "set_property_caret_change" in self._context_callbacks:
+                for cp in self._context_callbacks["set_property_caret_change"]:
                     cp(source, old_pos, new_pos)
 
     def _property_visible_data_change(self, vmID: c_long, event: JavaObject, source: JavaObject):
         with ReleaseEvent(self, vmID, "property_visible_data_change", event, source):
-            if 'property_visible_data_change' in self._context_callbacks:
-                for cp in self._context_callbacks['property_visible_data_change']:
+            if "property_visible_data_change" in self._context_callbacks:
+                for cp in self._context_callbacks["property_visible_data_change"]:
                     cp(source)
 
-    def _property_child_change(self, vmID: c_long, event: JavaObject, source: JavaObject, old_child: JavaObject, new_child: JavaObject):
+    def _property_child_change(
+        self, vmID: c_long, event: JavaObject, source: JavaObject, old_child: JavaObject, new_child: JavaObject
+    ):
         with ReleaseEvent(self, vmID, "property_child_change", event, source):
-            if 'property_child_change' in self._context_callbacks:
-                for cp in self._context_callbacks['property_child_change']:
+            if "property_child_change" in self._context_callbacks:
+                for cp in self._context_callbacks["property_child_change"]:
                     cp(source, old_child, new_child)
 
-    def _property_active_descendent_change(self, vmID: c_long, event: JavaObject, source: JavaObject, old_child: JavaObject, new_child: JavaObject):
+    def _property_active_descendent_change(
+        self, vmID: c_long, event: JavaObject, source: JavaObject, old_child: JavaObject, new_child: JavaObject
+    ):
         with ReleaseEvent(self, vmID, "property_active_descendent_change", event, source):
-            if 'property active descendent change' in self._context_callbacks:
-                for cp in self._context_callbacks['property_active_descendent_change']:
+            if "property active descendent change" in self._context_callbacks:
+                for cp in self._context_callbacks["property_active_descendent_change"]:
                     cp(source, old_child, new_child)
 
-    def _property_table_model_change(self, vmID: c_long, event: JavaObject, source: JavaObject, old_value: str, new_value: str):
+    def _property_table_model_change(
+        self, vmID: c_long, event: JavaObject, source: JavaObject, old_value: str, new_value: str
+    ):
         with ReleaseEvent(self, vmID, "property_table_model_change", event, source):
-            if 'property_table_model_change' in self._context_callbacks:
-                for cp in self._context_callbacks['property_table_model_change']:
+            if "property_table_model_change" in self._context_callbacks:
+                for cp in self._context_callbacks["property_table_model_change"]:
                     cp(source, old_value, new_value)
 
     def _menu_selected(self, vmID: c_long, event: JavaObject, source: JavaObject):
         with ReleaseEvent(self, vmID, "menu_selected", event, source):
-            if 'menu_selected' in self._context_callbacks:
-                for cp in self._context_callbacks['menu_selected']:
+            if "menu_selected" in self._context_callbacks:
+                for cp in self._context_callbacks["menu_selected"]:
                     cp(source)
 
     def _menu_deselected(self, vmID: c_long, event: JavaObject, source: JavaObject):
         with ReleaseEvent(self, vmID, "menu_deselected", event, source):
-            if 'menu_deselected' in self._context_callbacks:
-                for cp in self._context_callbacks['menu_deselected']:
+            if "menu_deselected" in self._context_callbacks:
+                for cp in self._context_callbacks["menu_deselected"]:
                     cp(source)
 
     def _menu_canceled(self, vmID: c_long, event: JavaObject, source: JavaObject):
         with ReleaseEvent(self, vmID, "menu_canceled", event, source):
-            if 'menu_canceled' in self._context_callbacks:
-                for cp in self._context_callbacks['menu_canceled']:
+            if "menu_canceled" in self._context_callbacks:
+                for cp in self._context_callbacks["menu_canceled"]:
                     cp(source)
 
     def _focus_gained(self, vmID: c_long, event: JavaObject, source: JavaObject):
         with ReleaseEvent(self, vmID, "focus_gained", event, source):
-            if 'focus_gained' in self._context_callbacks:
-                for cp in self._context_callbacks['focus_gained']:
+            if "focus_gained" in self._context_callbacks:
+                for cp in self._context_callbacks["focus_gained"]:
                     cp(source)
 
     def _focus_lost(self, vmID: c_long, event: JavaObject, source: JavaObject):
         with ReleaseEvent(self, vmID, "focus_lost", event, source):
-            if 'focus_lost' in self._context_callbacks:
-                for cp in self._context_callbacks['focus_lost']:
+            if "focus_lost" in self._context_callbacks:
+                for cp in self._context_callbacks["focus_lost"]:
                     cp(source)
 
     def _caret_update(self, vmID: c_long, event: JavaObject, source: JavaObject):
         with ReleaseEvent(self, vmID, "caret_update", event, source):
-            if 'caret_update' in self._context_callbacks:
-                for cp in self._context_callbacks['caret_update']:
+            if "caret_update" in self._context_callbacks:
+                for cp in self._context_callbacks["caret_update"]:
                     cp(source)
 
     def _mouse_clicked(self, vmID: c_long, event: JavaObject, source: JavaObject):
         with ReleaseEvent(self, vmID, "mouse_clicked", event, source):
-            if 'mouse_clicked' in self._context_callbacks:
-                for cp in self._context_callbacks['mouse_clicked']:
+            if "mouse_clicked" in self._context_callbacks:
+                for cp in self._context_callbacks["mouse_clicked"]:
                     cp(source)
 
     def _mouse_entered(self, vmID: c_long, event: JavaObject, source: JavaObject):
         with ReleaseEvent(self, vmID, "mouse_entered", event, source):
-            if 'mouse_entered' in self._context_callbacks:
-                for cp in self._context_callbacks['mouse_entered']:
+            if "mouse_entered" in self._context_callbacks:
+                for cp in self._context_callbacks["mouse_entered"]:
                     cp(source)
 
     def _mouse_exited(self, vmID: c_long, event: JavaObject, source: JavaObject):
         with ReleaseEvent(self, vmID, "mouse_exited", event, source):
-            if 'mouse_exited' in self._context_callbacks:
-                for cp in self._context_callbacks['mouse_exited']:
+            if "mouse_exited" in self._context_callbacks:
+                for cp in self._context_callbacks["mouse_exited"]:
                     cp(source)
 
     def _mouse_pressed(self, vmID: c_long, event: JavaObject, source: JavaObject):
         with ReleaseEvent(self, vmID, "mouse_pressed", event, source):
-            if 'mouse_pressed' in self._context_callbacks:
-                for cp in self._context_callbacks['mouse_pressed']:
+            if "mouse_pressed" in self._context_callbacks:
+                for cp in self._context_callbacks["mouse_pressed"]:
                     cp(source)
 
     def _mouse_released(self, vmID: c_long, event: JavaObject, source: JavaObject):
         with ReleaseEvent(self, vmID, "mouse_released", event, source):
-            if 'mouse_released' in self._context_callbacks:
-                for cp in self._context_callbacks['mouse_released']:
+            if "mouse_released" in self._context_callbacks:
+                for cp in self._context_callbacks["mouse_released"]:
                     cp(source)
 
     def _popup_menu_canceled(self, vmID: c_long, event: JavaObject, source: JavaObject):
         with ReleaseEvent(self, vmID, "popup_menu_canceled", event, source):
-            if 'popup_menu_canceled' in self._context_callbacks:
-                for cp in self._context_callbacks['popup_menu_canceled']:
+            if "popup_menu_canceled" in self._context_callbacks:
+                for cp in self._context_callbacks["popup_menu_canceled"]:
                     cp(source)
 
     def _popup_menu_will_become_invisible(self, vmID: c_long, event: JavaObject, source: JavaObject):
         with ReleaseEvent(self, vmID, "popup_menu_will_become_invisible", event, source):
-            if 'popup_menu_will_become_invisible' in self._context_callbacks:
-                for cp in self._context_callbacks['popup_menu_will_become_invisible']:
+            if "popup_menu_will_become_invisible" in self._context_callbacks:
+                for cp in self._context_callbacks["popup_menu_will_become_invisible"]:
                     cp(source)
 
     def _popup_menu_will_become_visible(self, vmID: c_long, event: JavaObject, source: JavaObject):
         with ReleaseEvent(self, vmID, "popup_menu_will_become_visible", event, source):
-            if 'popup_menu_will_become_visible' in self._context_callbacks:
-                for cp in self._context_callbacks['popup_menu_will_become_visible']:
+            if "popup_menu_will_become_visible" in self._context_callbacks:
+                for cp in self._context_callbacks["popup_menu_will_become_visible"]:
                     cp(source)

@@ -1,20 +1,16 @@
-import logging
-
-import time
-import sys
-import os
-
 import ctypes
-from ctypes import wintypes, byref
-
-import subprocess
-import threading
+import logging
+import os
 import queue
+import subprocess
+import sys
+import threading
+import time
+from ctypes import byref, wintypes
 
 from JABWrapper.context_tree import ContextNode, ContextTree, SearchElement
 from JABWrapper.jab_types import JavaObject
 from JABWrapper.jab_wrapper import JavaAccessBridgeWrapper
-
 
 PeekMessage = ctypes.windll.user32.PeekMessageW
 GetMessage = ctypes.windll.user32.GetMessageW
@@ -57,7 +53,7 @@ def pump_background(pipe: queue.Queue):
         logging.info("Stopped processing events")
 
 
-def write_to_file(name: str, data: str, mode='w') -> None:
+def write_to_file(name: str, data: str, mode="w") -> None:
     with open(name, mode) as f:
         f.write(data)
 
@@ -75,7 +71,7 @@ def wait_until_text_contains(element: ContextNode, text: str, retries=10):
 
 def wait_until_text_cleared(element: ContextNode, retries=10):
     for i in range(retries):
-        if element.text.items.sentence == '':
+        if element.text.items.sentence == "":
             return
         time.sleep(0.05)
     else:
@@ -109,12 +105,14 @@ def select_window(jab_wrapper, window_id):
     logging.info(f"Window PID={pid}")
     assert pid is not None, "Pid is none"
     version_info = jab_wrapper.get_version_info()
-    logging.info("VMversion={}; BridgeJavaClassVersion={}; BridgeJavaDLLVersion={}; BridgeWinDLLVersion={}\n".format(
-        version_info.VMversion,
-        version_info.bridgeJavaClassVersion,
-        version_info.bridgeJavaDLLVersion,
-        version_info.bridgeWinDLLVersion
-    ))
+    logging.info(
+        "VMversion={}; BridgeJavaClassVersion={}; BridgeJavaDLLVersion={}; BridgeWinDLLVersion={}\n".format(
+            version_info.VMversion,
+            version_info.bridgeJavaClassVersion,
+            version_info.bridgeJavaDLLVersion,
+            version_info.bridgeWinDLLVersion,
+        )
+    )
 
 
 def parse_elements(jab_wrapper) -> ContextTree:
@@ -147,8 +145,9 @@ def set_focus(context_info_tree):
 def click_send_button(context_info_tree, text_area):
     # Click the send button
     logging.info("Clicking the send button")
-    send_button = context_info_tree.get_by_attrs([SearchElement("role", "push button"), SearchElement("name", "Send"),
-                                                  SearchElement("indexInParent", 0)])[0]
+    send_button = context_info_tree.get_by_attrs(
+        [SearchElement("role", "push button"), SearchElement("name", "Send"), SearchElement("indexInParent", 0)]
+    )[0]
     logging.debug("Found element by role (push button) and name (Send): {}".format(send_button))
     send_button.click()
     wait_until_text_contains(text_area, "default text")
@@ -171,8 +170,9 @@ def select_combobox(jab_wrapper, context_info_tree, text_area):
 def click_clear_button(context_info_tree, text_area):
     # Click the clear button
     logging.info("Clicking the clear button")
-    clear_button = context_info_tree.get_by_attrs([SearchElement("role", "push button", True), SearchElement("name", "Clear"),
-                                                   SearchElement("indexInParent", 3)])[0]
+    clear_button = context_info_tree.get_by_attrs(
+        [SearchElement("role", "push button", True), SearchElement("name", "Clear"), SearchElement("indexInParent", 3)]
+    )[0]
     logging.debug("Found element by role (push button) and name (Clear): {}".format(clear_button))
     clear_button.click()
     wait_until_text_cleared(text_area)
@@ -211,7 +211,9 @@ def click_exit(jab_wrapper, exit_menu):
     jab_wrapper.switch_window_by_title("Exit")
     context_info_tree_for_exit_frame = ContextTree(jab_wrapper)
     write_to_file("context.txt", "\n\n{}".format(repr(context_info_tree_for_exit_frame)), "a+")
-    exit_button = context_info_tree_for_exit_frame.get_by_attrs([SearchElement("role", "push button"), SearchElement("name", "Exit ok")])[0]
+    exit_button = context_info_tree_for_exit_frame.get_by_attrs(
+        [SearchElement("role", "push button"), SearchElement("name", "Exit ok")]
+    )[0]
     logging.debug("Found element by role (push button) and name (Exit ok): {}".format(exit_menu))
     exit_button.click()
 

@@ -1,20 +1,20 @@
 import logging
 import threading
-from typing import List
 from dataclasses import dataclass
+from typing import List
 
+from JABWrapper.jab_types import AccessibleContextInfo, JavaObject
 from JABWrapper.jab_wrapper import JavaAccessBridgeWrapper
-from JABWrapper.jab_types import JavaObject, AccessibleContextInfo
-from JABWrapper.utils import log_exec_time, retry_callback, SearchElement
-from JABWrapper.parsers.parser_if import Parser
-from JABWrapper.parsers.text_parser import AccessibleTextParser
-from JABWrapper.parsers.value_parser import AccessibleValueParser
 from JABWrapper.parsers.actions_parser import AccessibleActionsParser
+from JABWrapper.parsers.hypertext_parser import AccessibleHypertextParser
 from JABWrapper.parsers.icon_parser import AccessibleIconParser
 from JABWrapper.parsers.keybind_parser import AccessibleKeyBindingsParser
-from JABWrapper.parsers.hypertext_parser import AccessibleHypertextParser
-from JABWrapper.parsers.table_parser import AccessibleTableParser
+from JABWrapper.parsers.parser_if import Parser
 from JABWrapper.parsers.selection_parser import AccessibleSelectionParser
+from JABWrapper.parsers.table_parser import AccessibleTableParser
+from JABWrapper.parsers.text_parser import AccessibleTextParser
+from JABWrapper.parsers.value_parser import AccessibleValueParser
+from JABWrapper.utils import SearchElement, log_exec_time, retry_callback
 
 
 @dataclass
@@ -33,7 +33,9 @@ class NodeLocator:
 
 
 class ContextNode:
-    def __init__(self, jab_wrapper: JavaAccessBridgeWrapper, context: JavaObject, lock, ancestry: int = 0, parse_children=True) -> None:
+    def __init__(
+        self, jab_wrapper: JavaAccessBridgeWrapper, context: JavaObject, lock, ancestry: int = 0, parse_children=True
+    ) -> None:
         self._jab_wrapper = jab_wrapper
         self._lock = lock
         self.ancestry = ancestry
@@ -60,7 +62,16 @@ class ContextNode:
         self.table = AccessibleTableParser(self._aci)
         self.icons = AccessibleIconParser(self._aci)
         self.selections = AccessibleSelectionParser(self._aci)
-        self._parsers: List[Parser] = [self.text, self.value, self.actions, self.keybinds, self.hypertext, self.table, self.icons, self.selections]
+        self._parsers: List[Parser] = [
+            self.text,
+            self.value,
+            self.actions,
+            self.keybinds,
+            self.hypertext,
+            self.table,
+            self.icons,
+            self.selections,
+        ]
         [parser.parse(self._jab_wrapper, self.context) for parser in self._parsers]
 
     @property
@@ -106,20 +117,22 @@ class ContextNode:
         Returns:
             A string that represents the object tree with detailed Node values.
         """
-        string = (f"{'| ' * self.ancestry}"
-                  f"role:{self.context_info.role}; "
-                  f"name:{self.context_info.name}; "
-                  f"virtual_accessible_name:{self.virtual_accessible_name}; "
-                  f"description:{self.context_info.description}; "
-                  f"ancestry:{self.ancestry}; "
-                  f"state:{self.state}; "
-                  f"states:{self.context_info.states}; "
-                  f"at x:{self.context_info.x} y:{self.context_info.y}; "
-                  f"width:{self.context_info.width}; "
-                  f"height:{self.context_info.height}; "
-                  f"indexInParent:{self.context_info.indexInParent}; "
-                  f"childrenCount:{self.context_info.childrenCount}; "
-                  f"visible_children_count:{self.visible_children_count}")
+        string = (
+            f"{'| ' * self.ancestry}"
+            f"role:{self.context_info.role}; "
+            f"name:{self.context_info.name}; "
+            f"virtual_accessible_name:{self.virtual_accessible_name}; "
+            f"description:{self.context_info.description}; "
+            f"ancestry:{self.ancestry}; "
+            f"state:{self.state}; "
+            f"states:{self.context_info.states}; "
+            f"at x:{self.context_info.x} y:{self.context_info.y}; "
+            f"width:{self.context_info.width}; "
+            f"height:{self.context_info.height}; "
+            f"indexInParent:{self.context_info.indexInParent}; "
+            f"childrenCount:{self.context_info.childrenCount}; "
+            f"visible_children_count:{self.visible_children_count}"
+        )
         for parser in self._parsers:
             string += f"{parser}"
         for child in self.children:
@@ -131,19 +144,21 @@ class ContextNode:
         Returns:
             A string of Node values.
         """
-        string = (f"role:{self.context_info.role}; "
-                  f"name:{self.context_info.name}; "
-                  f"virtual_accessible_name:{self.virtual_accessible_name}; "
-                  f"description:{self.context_info.description}; "
-                  f"ancestry:{self.ancestry}; "
-                  f"state:{self.state}; "
-                  f"states:{self.context_info.states}; "
-                  f"at x:{self.context_info.x} y:{self.context_info.y}; "
-                  f"width:{self.context_info.width}; "
-                  f"height:{self.context_info.height}; "
-                  f"indexInParent:{self.context_info.indexInParent}; "
-                  f"childrenCount:{self.context_info.childrenCount}; "
-                  f"visible_children_count:{self.visible_children_count}")
+        string = (
+            f"role:{self.context_info.role}; "
+            f"name:{self.context_info.name}; "
+            f"virtual_accessible_name:{self.virtual_accessible_name}; "
+            f"description:{self.context_info.description}; "
+            f"ancestry:{self.ancestry}; "
+            f"state:{self.state}; "
+            f"states:{self.context_info.states}; "
+            f"at x:{self.context_info.x} y:{self.context_info.y}; "
+            f"width:{self.context_info.width}; "
+            f"height:{self.context_info.height}; "
+            f"indexInParent:{self.context_info.indexInParent}; "
+            f"childrenCount:{self.context_info.childrenCount}; "
+            f"visible_children_count:{self.visible_children_count}"
+        )
         for parser in self._parsers:
             string += "{}".format(parser)
         return string
@@ -153,19 +168,21 @@ class ContextNode:
         Returns node info for all searcheable elements.
         """
         nodes = list()
-        nodes.append(NodeLocator(
-            self.context_info.name,
-            self.context_info.description,
-            self.context_info.role,
-            self.context_info.states,
-            self.context_info.indexInParent,
-            self.context_info.childrenCount,
-            self.context_info.x,
-            self.context_info.y,
-            self.context_info.width,
-            self.context_info.height,
-            self.ancestry
-        ))
+        nodes.append(
+            NodeLocator(
+                self.context_info.name,
+                self.context_info.description,
+                self.context_info.role,
+                self.context_info.states,
+                self.context_info.indexInParent,
+                self.context_info.childrenCount,
+                self.context_info.x,
+                self.context_info.y,
+                self.context_info.width,
+                self.context_info.height,
+                self.ancestry,
+            )
+        )
         for child in self.children:
             nodes += child.get_search_element_tree()
         return nodes
@@ -279,7 +296,9 @@ class ContextNode:
             found_visible_children = self._jab_wrapper.get_visible_children(self.context, 0)
             logging.debug(f"Found visible children count={self.visible_children_count}")
             for i in range(0, found_visible_children.returnedChildrenCount):
-                visible_child = ContextNode(self._jab_wrapper, found_visible_children.children[i], self._lock, self.ancestry + 1, False)
+                visible_child = ContextNode(
+                    self._jab_wrapper, found_visible_children.children[i], self._lock, self.ancestry + 1, False
+                )
                 visible_children.append(visible_child)
         return visible_children
 
@@ -379,7 +398,9 @@ class ContextTree:
         logging.debug("Property child change event ignored")
 
     @retry_callback
-    def _property_active_descendent_change_cp(self, source: JavaObject, old_child: JavaObject, new_child: JavaObject) -> None:
+    def _property_active_descendent_change_cp(
+        self, source: JavaObject, old_child: JavaObject, new_child: JavaObject
+    ) -> None:
         # The activity status is not stored inside the tree model
         logging.debug("Property active descendent change event ignored")
 
@@ -480,7 +501,9 @@ class ContextTree:
         self._jab_wrapper.register_callback("property_caret_change", self._property_caret_change_cp)
         self._jab_wrapper.register_callback("property_visible_data_change", self._visible_data_change_cp)
         self._jab_wrapper.register_callback("property_child_change", self._property_child_change_cp)
-        self._jab_wrapper.register_callback("property_active_descendent_change", self._property_active_descendent_change_cp)
+        self._jab_wrapper.register_callback(
+            "property_active_descendent_change", self._property_active_descendent_change_cp
+        )
         self._jab_wrapper.register_callback("property_table_model_change", self._property_table_model_change_cp)
         # Menu event handlers
         self._jab_wrapper.register_callback("menu_selected", self._menu_selected_cp)
@@ -499,7 +522,9 @@ class ContextTree:
         self._jab_wrapper.register_callback("mouse_released", self._mouse_released_cp)
         # Popup menu events
         self._jab_wrapper.register_callback("popup_menu_canceled", self._popup_menu_canceled_cp)
-        self._jab_wrapper.register_callback("popup_menu_will_become_invisible", self._popup_menu_will_become_invisible_cp)
+        self._jab_wrapper.register_callback(
+            "popup_menu_will_become_invisible", self._popup_menu_will_become_invisible_cp
+        )
         self._jab_wrapper.register_callback("popup_menu_will_become_visible", self._popup_menu_will_become_visible_cp)
 
     def get_by_attrs(self, search_elements: List[SearchElement]) -> List[ContextNode]:
