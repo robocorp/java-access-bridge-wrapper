@@ -1,4 +1,4 @@
-# TODO: Refactor this with pyttest entirely.
+# TODO: Refactor this with pytest entirely.
 
 import ctypes
 import logging
