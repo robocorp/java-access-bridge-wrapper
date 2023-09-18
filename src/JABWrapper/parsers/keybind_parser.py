@@ -1,12 +1,17 @@
-from JABWrapper.parsers.parser_if import Parser
-from JABWrapper.jab_types import AccessibleContextInfo, AccessibleKeyBindings, JavaObject
+from JABWrapper.jab_types import (
+    AccessibleContextInfo,
+    AccessibleKeyBindings,
+    JavaObject,
+)
 from JABWrapper.jab_wrapper import JavaAccessBridgeWrapper
+from JABWrapper.parsers.parser_if import Parser
 
 
 class AccessibleKeyBindingsParser(Parser):
     """
     Attribute keybinds contains
     """
+
     def __init__(self, aci: AccessibleContextInfo) -> None:
         self._aci = aci
         self._keybinds = AccessibleKeyBindings()
