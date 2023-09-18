@@ -135,6 +135,24 @@ def type_text_into_text_field(context_info_tree) -> ContextNode:
     wait_until_text_contains(text_area, text)
     return text_area
 
+def set_caret_position(context_info_tree):
+    input_area = context_info_tree.get_by_attrs([SearchElement("role", "text")])[0]
+    logging.info(input_area.get_actions())
+    input_area.set_caret_position(3)
+    logging.info("set_caret_position")
+    time.sleep(5)
+
+def get_caret_position(context_info_tree):
+    input_area = context_info_tree.get_by_attrs([SearchElement("role", "text")])[1]
+    pos = input_area.get_caret_position(0)
+    logging.info(f"get_caret_position: {pos.__dict__}")
+    time.sleep(5)
+
+def select_text_range(context_info_tree):
+    input_area = context_info_tree.get_by_attrs([SearchElement("role", "text")])[1]
+    input_area.select_text_range(1, 3)
+    logging.info(f"select_text_range")
+    time.sleep(5)
 
 def set_focus(context_info_tree):
     # Set focus to main frame
@@ -227,6 +245,9 @@ def run_app_tests(jab_wrapper, window_id):
     context_info_tree = parse_elements(jab_wrapper)
     set_focus(context_info_tree)
     text_area = type_text_into_text_field(context_info_tree)
+    set_caret_position(context_info_tree)
+    get_caret_position(context_info_tree)
+    select_text_range(context_info_tree)
     click_send_button(context_info_tree, text_area)
     click_clear_button(context_info_tree, text_area)
     verify_table_content(context_info_tree)
@@ -257,8 +278,6 @@ def main():
         title = windows[0].title
         assert title == "Foo bar", f"Invalid window found={title}"
         run_app_tests(jab_wrapper, windows[0].pid)
-    except Exception as e:
-        logging.error(f"error={type(e)} - {e}")
     finally:
         logging.info("Shutting down JAB wrapper")
         if jab_wrapper:

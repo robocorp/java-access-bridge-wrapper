@@ -14,7 +14,7 @@ Python wrapper around the Java Access Bridge / Windows Access Bridge.
 
 Enable the Java Access Bridge in windows
 
-    C:\path\to\java\bin\jabswitch -enable
+    C:\path\to\java\bin\jabswitch /enable
 
 # Install
 

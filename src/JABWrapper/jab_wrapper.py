@@ -395,7 +395,9 @@ class JavaAccessBridgeWrapper:
         # BOOL requestFocus(long vmID, AccessibleContext context)
         self._wab.requestFocus.argtypes = [c_long, JavaObject]
         self._wab.requestFocus.restypes = wintypes.BOOL
-        # TODO: selectTextRange
+        # BOOL selectTextRangeFP (long vmID, AccessibleContext accessibleContext, int startIndex, int endIndex)
+        self._wab.selectTextRange.argtypes = [c_long, JavaObject, c_int, c_int]
+        self._wab.selectTextRange.restype = wintypes.BOOL
         # TODO: getTextAttributesInRange
         # int getVisibleChildrenCount(long vmID, AccessibleContext context)
         self._wab.getVisibleChildrenCount.argtypes = [c_long, JavaObject]
@@ -403,8 +405,13 @@ class JavaAccessBridgeWrapper:
         # BOOL getVisibleChildren(long vmID, AccessibleContext context, int startIndex, VisibleChildrenInfo *visibleChilderInfo)
         self._wab.getVisibleChildren.argtypes = [c_long, JavaObject, c_int, POINTER(VisibleChildrenInfo)]
         self._wab.getVisibleChildren.restype = wintypes.BOOL
-        # TODO: setCaretPosition
-        # TODO: getCaretLocation
+        # BOOL setCaretPositionFP (long vmID, AccessibleContext accessibleContext, int position)
+        self._wab.setCaretPosition.argtypes = [c_long, JavaObject, c_int]
+        self._wab.setCaretPosition.restype = wintypes.BOOL
+        # TODO: Bogdan getCaretLocation
+        # BOOL getCaretLocationFP (long vmID, AccessibleContext ac, AccessibleTextRectInfo *rectInfo, int index);
+        self._wab.getCaretLocation.argtypes = [c_long, JavaObject, POINTER(AccessibleTextRectInfo), c_int]
+        self._wab.getCaretLocation.restype = wintypes.BOOL
         # TODO: getEventsWaitingFP
 
     def _define_callbacks(self) -> None:
@@ -1709,6 +1716,26 @@ class JavaAccessBridgeWrapper:
         if not ok:
             raise APIException("Failed to get virtual accessible name")
         return buf.value
+    
+    def select_text_range(self, context: JavaObject, start_index: int, end_index: int) -> bool:
+        """
+        Select text within given range
+
+        Args:
+            context: the element context handle.
+            start_index: int for start of selection as index.
+            end_index: int for end of selection as index.
+
+        Returns:
+            bool: should always be True if operation was successful.
+
+        Raises:
+            APIException: failed to call the java access bridge API with attributes or failed to make selection.
+        """
+        ok = self._wab.selectTextRange(self._vmID, context, start_index, end_index)
+        if not ok:
+            raise APIException("Failed to select text")
+        return ok
 
     def get_visible_children_count(self, context: JavaObject) -> int:
         return self._wab.getVisibleChildrenCount(self._vmID, context)
@@ -1719,6 +1746,45 @@ class JavaAccessBridgeWrapper:
         if not ok:
             raise APIException('Failed to get visible children info')
         return visible_children
+    
+    def set_caret_position(self, context: JavaObject, position: int) -> bool:
+        """
+        Set the caret to the given position
+
+        Args:
+            context: the element context handle.
+            position: int representing the index where to set the caret.
+
+        Returns:
+            bool: should always be True if operation was successful.
+
+        Raises:
+            APIException: failed to call the java access bridge API with attributes or failed to set the caret.
+        """
+        ok = self._wab.setCaretPosition(self._vmID, context, position)
+        if not ok:
+            raise APIException("Failed to select text")
+        return ok
+    
+    def get_caret_location(self, context: JavaObject, index: int) -> AccessibleTextRectInfo:
+        """
+        Get the coordinates of the current caret location.
+
+        Args:
+            context: the element context handle.
+            index: TODO
+
+        Returns:
+            An AccessibleTextRectInfo object.
+
+        Raises:
+            APIException: failed to call the java access bridge API with attributes or failed to get location.
+        """
+        text_rect_info = AccessibleTextRectInfo()
+        ok = self._wab.getCaretLocation(self._vmID, context, byref(text_rect_info), index)
+        if not ok:
+            raise APIException("Failed to select text")
+        return text_rect_info
 
     def register_callback(self, name: str, callback: Callable[[JavaObject], None]) -> None:
         """
