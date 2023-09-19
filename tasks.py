@@ -61,6 +61,7 @@ def test(ctx, verbose: bool = False, capture_output: bool = False):
         log_level = "DEBUG"
     else:
         log_level = "INFO"
+    pytest_args.append(f"-o log_level={log_level}")
     if capture_output:
         pytest_args.extend(["-s", "-o log_cli=true", f"-o log_cli_level={log_level}"])
     pytest_opts = " ".join(pytest_args)

@@ -159,7 +159,7 @@ class Enumerator:
 
 
 class JavaAccessBridgeWrapper:
-    def __init__(self, ignore_callbacks=False) -> None:
+    def __init__(self, ignore_callbacks: bool = False) -> None:
         self.ignore_callbacks = ignore_callbacks
         self._init()
 

@@ -1,5 +1,4 @@
 import ctypes
-import functools
 import logging
 import os
 import queue
@@ -20,9 +19,9 @@ TranslateMessage = ctypes.windll.user32.TranslateMessage
 DispatchMessage = ctypes.windll.user32.DispatchMessageW
 
 
-def _pump_background(pipe: queue.Queue):
+def _pump_background(pipe: queue.Queue, *, enable_callbacks: bool):
     try:
-        jab_wrapper = JavaAccessBridgeWrapper()
+        jab_wrapper = JavaAccessBridgeWrapper(ignore_callbacks=not enable_callbacks)
         pipe.put(jab_wrapper)
         message = byref(wintypes.MSG())
         while GetMessage(message, 0, 0, 0) > 0:
@@ -36,11 +35,13 @@ def _pump_background(pipe: queue.Queue):
         logging.info("Stopped processing events")
 
 
-@pytest.fixture(scope="session")
-def jab_wrapper():
+@pytest.fixture(scope="session", params=[True])
+def jab_wrapper(request):
     logging.info("Starting the JAB wrapper")
     pipe = queue.Queue()
-    thread = threading.Thread(target=_pump_background, daemon=True, args=[pipe])
+    thread = threading.Thread(
+        target=_pump_background, daemon=True, args=[pipe], kwargs={"enable_callbacks": request.param}
+    )
     thread.start()
     jab_wrapper = pipe.get()
     if not jab_wrapper:
@@ -52,11 +53,16 @@ def jab_wrapper():
     jab_wrapper.shutdown()
 
 
+def _write_to_file(data: str, name: str = "context.txt", mode: str = "a+") -> None:
+    with open(name, mode) as stream:
+        stream.write(data)
+
+
 def parse_elements(jab_wrapper) -> ContextTree:
     # Parse the element tree of the window
     logging.info("Getting context tree")
     context_info_tree = ContextTree(jab_wrapper)
-    write_to_file("context.txt", repr(context_info_tree))
+    _write_to_file(repr(context_info_tree), mode="w")
     return context_info_tree
 
 
@@ -69,31 +75,31 @@ def shutdown_app(jab_wrapper, context_info_tree):
 @pytest.fixture(params=["title", "pid"])
 def test_application(jab_wrapper, request):
     app_path = os.path.join(os.path.abspath(os.path.curdir), "tests", "test-app")
-    run = functools.partial(subprocess.run, check=True, cwd=app_path, close_fds=True)
     # Compile a simple Java program.
-    run(["makejar.bat"])
+    subprocess.run(["makejar.bat"], check=True, shell=True, cwd=app_path, close_fds=True)
     # Run the swing program in the background.
     logging.info("Opening Java Swing application...")
     by_attr = request.param
     title = f"Chat Frame - By {by_attr}"
-    run(["java", "BasicSwing", title])
+    subprocess.Popen(["java", "BasicSwing", title], cwd=app_path, close_fds=True)
 
-    windows = jab_wrapper.get_windows()
-    window = windows[0]
+    window = None
+    while not window:
+        windows = jab_wrapper.get_windows()
+        if windows:
+            window = windows[0]
+        else:
+            logging.info("Waiting for window to spawn...")
+            time.sleep(0.5)
     assert window.title == title, f"Invalid found window {window.title!r}"
-    window_id = getattr(window, by_attr)
 
+    window_id = getattr(window, by_attr)
     select_window(jab_wrapper, window_id)
     context_info_tree = parse_elements(jab_wrapper)
 
     yield context_info_tree
 
     shutdown_app(jab_wrapper, context_info_tree)
-
-
-def write_to_file(name: str, data: str, mode="w") -> None:
-    with open(name, mode) as f:
-        f.write(data)
 
 
 def wait_until_text_contains(element: ContextNode, text: str, retries=10):
@@ -103,7 +109,7 @@ def wait_until_text_contains(element: ContextNode, text: str, retries=10):
             return
         time.sleep(0.05)
     else:
-        write_to_file("context.txt", "\n\n{}".format(str(element)), "a+")
+        _write_to_file("\n\n{}".format(str(element)))
         raise Exception(f"Text={text} not found in element={element}")
 
 
@@ -113,7 +119,7 @@ def wait_until_text_cleared(element: ContextNode, retries=10):
             return
         time.sleep(0.05)
     else:
-        write_to_file("context.txt", "\n\n{}".format(str(element)), "a+")
+        _write_to_file("\n\n{}".format(str(element)))
         raise Exception(f"Text element not cleared={element}")
 
 
@@ -240,7 +246,7 @@ def click_exit(jab_wrapper, exit_menu):
     logging.info("Switching to exit frame and clicking the exit button")
     jab_wrapper.switch_window_by_title("Exit")
     context_info_tree_for_exit_frame = ContextTree(jab_wrapper)
-    write_to_file("context.txt", "\n\n{}".format(repr(context_info_tree_for_exit_frame)), "a+")
+    _write_to_file("\n\n{}".format(repr(context_info_tree_for_exit_frame)))
     exit_button = context_info_tree_for_exit_frame.get_by_attrs(
         [SearchElement("role", "push button"), SearchElement("name", "Exit ok")]
     )[0]
@@ -248,9 +254,9 @@ def click_exit(jab_wrapper, exit_menu):
     exit_button.click()
 
 
-def test_app_flow(context_info_tree):
-    set_focus(context_info_tree)
-    text_area = type_text_into_text_field(context_info_tree)
-    click_send_button(context_info_tree, text_area)
-    click_clear_button(context_info_tree, text_area)
-    verify_table_content(context_info_tree)
+def test_app_flow(test_application):
+    set_focus(test_application)
+    text_area = type_text_into_text_field(test_application)
+    click_send_button(test_application, text_area)
+    click_clear_button(test_application, text_area)
+    verify_table_content(test_application)
