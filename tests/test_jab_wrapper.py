@@ -1,12 +1,14 @@
 import ctypes
+import functools
 import logging
 import os
 import queue
 import subprocess
-import sys
 import threading
 import time
 from ctypes import byref, wintypes
+
+import pytest
 
 from JABWrapper.context_tree import ContextNode, ContextTree, SearchElement
 from JABWrapper.jab_types import JavaObject
@@ -18,26 +20,7 @@ TranslateMessage = ctypes.windll.user32.TranslateMessage
 DispatchMessage = ctypes.windll.user32.DispatchMessageW
 
 
-def dump(obj):
-    for attr in dir(obj):
-        print("obj.%s = %r" % (attr, getattr(obj, attr)))
-
-
-def start_test_application(title):
-    app_path = os.path.join(os.path.abspath(os.path.curdir), "tests", "test-app")
-    # Compile the simple java program
-    returncode = subprocess.call(["makejar.bat"], shell=True, cwd=app_path, close_fds=True)
-    if returncode > 0:
-        logging.error(f"Failed to compile Swing application={returncode}")
-        sys.exit(returncode)
-    # Run the swing program in background
-    logging.info("Opening Java Swing application")
-    subprocess.Popen(["java", "BasicSwing", title], shell=True, cwd=app_path, close_fds=True)
-    # Wait a bit for application to open
-    time.sleep(2)
-
-
-def pump_background(pipe: queue.Queue):
+def _pump_background(pipe: queue.Queue):
     try:
         jab_wrapper = JavaAccessBridgeWrapper()
         pipe.put(jab_wrapper)
@@ -51,6 +34,61 @@ def pump_background(pipe: queue.Queue):
         pipe.put(None)
     finally:
         logging.info("Stopped processing events")
+
+
+@pytest.fixture(scope="session")
+def jab_wrapper():
+    logging.info("Starting the JAB wrapper")
+    pipe = queue.Queue()
+    thread = threading.Thread(target=_pump_background, daemon=True, args=[pipe])
+    thread.start()
+    jab_wrapper = pipe.get()
+    if not jab_wrapper:
+        raise Exception("Failed to initialize Java Access Bridge Wrapper")
+
+    yield jab_wrapper
+
+    logging.info("Shutting down the JAB wrapper")
+    jab_wrapper.shutdown()
+
+
+def parse_elements(jab_wrapper) -> ContextTree:
+    # Parse the element tree of the window
+    logging.info("Getting context tree")
+    context_info_tree = ContextTree(jab_wrapper)
+    write_to_file("context.txt", repr(context_info_tree))
+    return context_info_tree
+
+
+def shutdown_app(jab_wrapper, context_info_tree):
+    open_menu_item_file(jab_wrapper, context_info_tree)
+    exit_menu = click_exit_menu(context_info_tree)
+    click_exit(jab_wrapper, exit_menu)
+
+
+@pytest.fixture(params=["title", "pid"])
+def test_application(jab_wrapper, request):
+    app_path = os.path.join(os.path.abspath(os.path.curdir), "tests", "test-app")
+    run = functools.partial(subprocess.run, check=True, cwd=app_path, close_fds=True)
+    # Compile a simple Java program.
+    run(["makejar.bat"])
+    # Run the swing program in the background.
+    logging.info("Opening Java Swing application...")
+    by_attr = request.param
+    title = f"Chat Frame - By {by_attr}"
+    run(["java", "BasicSwing", title])
+
+    windows = jab_wrapper.get_windows()
+    window = windows[0]
+    assert window.title == title, f"Invalid found window {window.title!r}"
+    window_id = getattr(window, by_attr)
+
+    select_window(jab_wrapper, window_id)
+    context_info_tree = parse_elements(jab_wrapper)
+
+    yield context_info_tree
+
+    shutdown_app(jab_wrapper, context_info_tree)
 
 
 def write_to_file(name: str, data: str, mode="w") -> None:
@@ -103,7 +141,7 @@ def select_window(jab_wrapper, window_id):
     else:
         pid = jab_wrapper.switch_window_by_title(window_id)
     logging.info(f"Window PID={pid}")
-    assert pid is not None, "Pid is none"
+    assert pid is not None, "PID is null"
     version_info = jab_wrapper.get_version_info()
     logging.info(
         "VMversion={}; BridgeJavaClassVersion={}; BridgeJavaDLLVersion={}; BridgeWinDLLVersion={}\n".format(
@@ -113,14 +151,6 @@ def select_window(jab_wrapper, window_id):
             version_info.bridgeWinDLLVersion,
         )
     )
-
-
-def parse_elements(jab_wrapper) -> ContextTree:
-    # Parse the element tree of the window
-    logging.info("Getting context tree")
-    context_info_tree = ContextTree(jab_wrapper)
-    write_to_file("context.txt", repr(context_info_tree))
-    return context_info_tree
 
 
 def type_text_into_text_field(context_info_tree) -> ContextNode:
@@ -218,54 +248,9 @@ def click_exit(jab_wrapper, exit_menu):
     exit_button.click()
 
 
-def shutdown_app(jab_wrapper, context_info_tree):
-    open_menu_item_file(jab_wrapper, context_info_tree)
-    exit_menu = click_exit_menu(context_info_tree)
-    click_exit(jab_wrapper, exit_menu)
-
-
-def run_app_tests(jab_wrapper, window_id):
-    select_window(jab_wrapper, window_id)
-    context_info_tree = parse_elements(jab_wrapper)
+def test_app_flow(context_info_tree):
     set_focus(context_info_tree)
     text_area = type_text_into_text_field(context_info_tree)
     click_send_button(context_info_tree, text_area)
     click_clear_button(context_info_tree, text_area)
     verify_table_content(context_info_tree)
-    shutdown_app(jab_wrapper, context_info_tree)
-
-
-def main():
-    jab_wrapper: JavaAccessBridgeWrapper = None
-    try:
-        # Looks like Windows message pump must be run in the main thread, so
-        # we'll have to keep invoking it...
-        pipe = queue.Queue()
-        thread = threading.Thread(target=pump_background, daemon=True, args=[pipe])
-        thread.start()
-        jab_wrapper = pipe.get()
-        if not jab_wrapper:
-            raise Exception("Failed to initialize Java Access Bridge Wrapper")
-        time.sleep(0.5)
-
-        start_test_application("Chat Frame")
-        windows = jab_wrapper.get_windows()
-        title = windows[0].title
-        assert title == "Chat Frame", f"Invalid window found={title}"
-        run_app_tests(jab_wrapper, title)
-
-        start_test_application("Foo bar")
-        windows = jab_wrapper.get_windows()
-        title = windows[0].title
-        assert title == "Foo bar", f"Invalid window found={title}"
-        run_app_tests(jab_wrapper, windows[0].pid)
-    except Exception as e:
-        logging.error(f"error={type(e)} - {e}")
-    finally:
-        logging.info("Shutting down JAB wrapper")
-        if jab_wrapper:
-            jab_wrapper.shutdown()
-
-
-if __name__ == "__main__":
-    main()

@@ -21,7 +21,7 @@ def poetry(ctx: Context, command: str, **kwargs):
     },
 )
 def update(ctx, verbose: bool = False, install: bool = True):
-    """Updates the lock file based on the pinned versions."""
+    """Update the dependency lock file based on the pinned versions."""
     poetry_opts = "-vvv" if verbose else ""
     poetry(ctx, f"update {poetry_opts}")
     if install:
@@ -45,3 +45,23 @@ def lint(ctx, apply: bool = False):
     poetry(ctx, f"run black {black_opts} {sources}", warn=warn)
 
     poetry(ctx, f"run flake8 --config {FLAKE8_CONFIG} {sources}", warn=warn)
+
+
+@task(
+    help={
+        "verbose": "Display detailed information with this on.",
+        "capture_output": "Displays printed information in the console."
+    },
+)
+def test(ctx, verbose: bool = False, capture_output: bool = False):
+    """Run tests."""
+    pytest_args = []
+    if verbose:
+        pytest_args.append("-vv")
+        log_level = "DEBUG"
+    else:
+        log_level = "INFO"
+    if capture_output:
+        pytest_args.extend(["-s", "-o log_cli=true", f"-o log_cli_level={log_level}"])
+    pytest_opts = " ".join(pytest_args)
+    poetry(ctx, f"run pytest {pytest_opts} tests")
