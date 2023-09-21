@@ -1,14 +1,14 @@
-from JABWrapper.parsers.parser_if import Parser
 from JABWrapper.jab_types import AccessibleContextInfo, JavaObject
 from JABWrapper.jab_wrapper import JavaAccessBridgeWrapper
+from JABWrapper.parsers.parser_if import Parser
 
 
 class AccessibleValueParser(Parser):
     def __init__(self, aci: AccessibleContextInfo) -> None:
         self._aci = aci
-        self.value = u''
-        self.min = u''
-        self.max = u''
+        self.value = ""
+        self.min = ""
+        self.max = ""
 
     def parse(self, jab_wrapper: JavaAccessBridgeWrapper, context: JavaObject) -> None:
         if self._aci.accessibleValue:

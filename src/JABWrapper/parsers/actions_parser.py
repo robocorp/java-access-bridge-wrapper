@@ -1,7 +1,12 @@
 from typing import List
-from JABWrapper.parsers.parser_if import Parser
-from JABWrapper.jab_types import AccessibleActionsToDo, AccessibleContextInfo, JavaObject
+
+from JABWrapper.jab_types import (
+    AccessibleActionsToDo,
+    AccessibleContextInfo,
+    JavaObject,
+)
 from JABWrapper.jab_wrapper import JavaAccessBridgeWrapper
+from JABWrapper.parsers.parser_if import Parser
 
 
 class AccessibleActionsParser(Parser):

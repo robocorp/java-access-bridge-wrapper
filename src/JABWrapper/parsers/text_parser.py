@@ -1,4 +1,3 @@
-from JABWrapper.parsers.parser_if import Parser
 from JABWrapper.jab_types import (
     AccessibleContextInfo,
     AccessibleTextAttributesInfo,
@@ -6,9 +5,10 @@ from JABWrapper.jab_types import (
     AccessibleTextItemsInfo,
     AccessibleTextRectInfo,
     AccessibleTextSelectionInfo,
-    JavaObject
+    JavaObject,
 )
 from JABWrapper.jab_wrapper import JavaAccessBridgeWrapper
+from JABWrapper.parsers.parser_if import Parser
 
 
 class AccessibleTextParser(Parser):
@@ -32,10 +32,7 @@ class AccessibleTextParser(Parser):
         if not self._aci.accessibleText:
             return ""
         return " tc={} w={} s={} st={};".format(
-            self._info.charCount,
-            self._items.word,
-            self._items.sentence,
-            self._selection.selectedText
+            self._info.charCount, self._items.word, self._items.sentence, self._selection.selectedText
         )
 
     @property

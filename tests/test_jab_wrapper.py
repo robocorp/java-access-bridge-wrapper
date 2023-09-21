@@ -1,20 +1,17 @@
-import logging
-
-import time
-import sys
-import os
-
 import ctypes
-from ctypes import wintypes, byref
-
+import logging
+import os
+import queue
 import subprocess
 import threading
-import queue
+import time
+from ctypes import byref, wintypes
+
+import pytest
 
 from JABWrapper.context_tree import ContextNode, ContextTree, SearchElement
 from JABWrapper.jab_types import JavaObject
 from JABWrapper.jab_wrapper import JavaAccessBridgeWrapper
-
 
 PeekMessage = ctypes.windll.user32.PeekMessageW
 GetMessage = ctypes.windll.user32.GetMessageW
@@ -22,28 +19,9 @@ TranslateMessage = ctypes.windll.user32.TranslateMessage
 DispatchMessage = ctypes.windll.user32.DispatchMessageW
 
 
-def dump(obj):
-    for attr in dir(obj):
-        print("obj.%s = %r" % (attr, getattr(obj, attr)))
-
-
-def start_test_application(title):
-    app_path = os.path.join(os.path.abspath(os.path.curdir), "tests", "test-app")
-    # Compile the simple java program
-    returncode = subprocess.call(["makejar.bat"], shell=True, cwd=app_path, close_fds=True)
-    if returncode > 0:
-        logging.error(f"Failed to compile Swing application={returncode}")
-        sys.exit(returncode)
-    # Run the swing program in background
-    logging.info("Opening Java Swing application")
-    subprocess.Popen(["java", "BasicSwing", title], shell=True, cwd=app_path, close_fds=True)
-    # Wait a bit for application to open
-    time.sleep(2)
-
-
-def pump_background(pipe: queue.Queue):
+def _pump_background(pipe: queue.Queue, *, enable_callbacks: bool):
     try:
-        jab_wrapper = JavaAccessBridgeWrapper()
+        jab_wrapper = JavaAccessBridgeWrapper(ignore_callbacks=not enable_callbacks)
         pipe.put(jab_wrapper)
         message = byref(wintypes.MSG())
         while GetMessage(message, 0, 0, 0) > 0:
@@ -57,9 +35,71 @@ def pump_background(pipe: queue.Queue):
         logging.info("Stopped processing events")
 
 
-def write_to_file(name: str, data: str, mode='w') -> None:
-    with open(name, mode) as f:
-        f.write(data)
+@pytest.fixture(scope="session", params=[True])
+def jab_wrapper(request):
+    logging.info("Starting the JAB wrapper")
+    pipe = queue.Queue()
+    thread = threading.Thread(
+        target=_pump_background, daemon=True, args=[pipe], kwargs={"enable_callbacks": request.param}
+    )
+    thread.start()
+    jab_wrapper = pipe.get()
+    if not jab_wrapper:
+        raise Exception("Failed to initialize Java Access Bridge Wrapper")
+
+    yield jab_wrapper
+
+    logging.info("Shutting down the JAB wrapper")
+    jab_wrapper.shutdown()
+
+
+def _write_to_file(data: str, name: str = "context.txt", mode: str = "a+") -> None:
+    with open(name, mode) as stream:
+        stream.write(data)
+
+
+def parse_elements(jab_wrapper) -> ContextTree:
+    # Parse the element tree of the window
+    logging.info("Getting context tree")
+    context_info_tree = ContextTree(jab_wrapper)
+    _write_to_file(repr(context_info_tree), mode="w")
+    return context_info_tree
+
+
+def shutdown_app(jab_wrapper, context_info_tree):
+    open_menu_item_file(jab_wrapper, context_info_tree)
+    exit_menu = click_exit_menu(context_info_tree)
+    click_exit(jab_wrapper, exit_menu)
+
+
+@pytest.fixture(params=["title", "pid"])
+def test_application(jab_wrapper, request):
+    app_path = os.path.join(os.path.abspath(os.path.curdir), "tests", "test-app")
+    # Compile a simple Java program.
+    subprocess.run(["makejar.bat"], check=True, shell=True, cwd=app_path, close_fds=True)
+    # Run the swing program in the background.
+    logging.info("Opening Java Swing application...")
+    by_attr = request.param
+    title = f"Chat Frame - By {by_attr}"
+    subprocess.Popen(["java", "BasicSwing", title], cwd=app_path, close_fds=True)
+
+    window = None
+    while not window:
+        windows = jab_wrapper.get_windows()
+        if windows:
+            window = windows[0]
+        else:
+            logging.info("Waiting for window to spawn...")
+            time.sleep(0.5)
+    assert window.title == title, f"Invalid found window {window.title!r}"
+
+    window_id = getattr(window, by_attr)
+    select_window(jab_wrapper, window_id)
+    context_info_tree = parse_elements(jab_wrapper)
+
+    yield context_info_tree
+
+    shutdown_app(jab_wrapper, context_info_tree)
 
 
 def wait_until_text_contains(element: ContextNode, text: str, retries=10):
@@ -69,17 +109,17 @@ def wait_until_text_contains(element: ContextNode, text: str, retries=10):
             return
         time.sleep(0.05)
     else:
-        write_to_file("context.txt", "\n\n{}".format(str(element)), "a+")
+        _write_to_file("\n\n{}".format(str(element)))
         raise Exception(f"Text={text} not found in element={element}")
 
 
 def wait_until_text_cleared(element: ContextNode, retries=10):
     for i in range(retries):
-        if element.text.items.sentence == '':
+        if element.text.items.sentence == "":
             return
         time.sleep(0.05)
     else:
-        write_to_file("context.txt", "\n\n{}".format(str(element)), "a+")
+        _write_to_file("\n\n{}".format(str(element)))
         raise Exception(f"Text element not cleared={element}")
 
 
@@ -107,22 +147,16 @@ def select_window(jab_wrapper, window_id):
     else:
         pid = jab_wrapper.switch_window_by_title(window_id)
     logging.info(f"Window PID={pid}")
-    assert pid is not None, "Pid is none"
+    assert pid is not None, "PID is null"
     version_info = jab_wrapper.get_version_info()
-    logging.info("VMversion={}; BridgeJavaClassVersion={}; BridgeJavaDLLVersion={}; BridgeWinDLLVersion={}\n".format(
-        version_info.VMversion,
-        version_info.bridgeJavaClassVersion,
-        version_info.bridgeJavaDLLVersion,
-        version_info.bridgeWinDLLVersion
-    ))
-
-
-def parse_elements(jab_wrapper) -> ContextTree:
-    # Parse the element tree of the window
-    logging.info("Getting context tree")
-    context_info_tree = ContextTree(jab_wrapper)
-    write_to_file("context.txt", repr(context_info_tree))
-    return context_info_tree
+    logging.info(
+        "VMversion={}; BridgeJavaClassVersion={}; BridgeJavaDLLVersion={}; BridgeWinDLLVersion={}\n".format(
+            version_info.VMversion,
+            version_info.bridgeJavaClassVersion,
+            version_info.bridgeJavaDLLVersion,
+            version_info.bridgeWinDLLVersion,
+        )
+    )
 
 
 def type_text_into_text_field(context_info_tree) -> ContextNode:
@@ -147,8 +181,9 @@ def set_focus(context_info_tree):
 def click_send_button(context_info_tree, text_area):
     # Click the send button
     logging.info("Clicking the send button")
-    send_button = context_info_tree.get_by_attrs([SearchElement("role", "push button"), SearchElement("name", "Send"),
-                                                  SearchElement("indexInParent", 0)])[0]
+    send_button = context_info_tree.get_by_attrs(
+        [SearchElement("role", "push button"), SearchElement("name", "Send"), SearchElement("indexInParent", 0)]
+    )[0]
     logging.debug("Found element by role (push button) and name (Send): {}".format(send_button))
     send_button.click()
     wait_until_text_contains(text_area, "default text")
@@ -171,8 +206,9 @@ def select_combobox(jab_wrapper, context_info_tree, text_area):
 def click_clear_button(context_info_tree, text_area):
     # Click the clear button
     logging.info("Clicking the clear button")
-    clear_button = context_info_tree.get_by_attrs([SearchElement("role", "push button", True), SearchElement("name", "Clear"),
-                                                   SearchElement("indexInParent", 3)])[0]
+    clear_button = context_info_tree.get_by_attrs(
+        [SearchElement("role", "push button", True), SearchElement("name", "Clear"), SearchElement("indexInParent", 3)]
+    )[0]
     logging.debug("Found element by role (push button) and name (Clear): {}".format(clear_button))
     clear_button.click()
     wait_until_text_cleared(text_area)
@@ -210,60 +246,17 @@ def click_exit(jab_wrapper, exit_menu):
     logging.info("Switching to exit frame and clicking the exit button")
     jab_wrapper.switch_window_by_title("Exit")
     context_info_tree_for_exit_frame = ContextTree(jab_wrapper)
-    write_to_file("context.txt", "\n\n{}".format(repr(context_info_tree_for_exit_frame)), "a+")
-    exit_button = context_info_tree_for_exit_frame.get_by_attrs([SearchElement("role", "push button"), SearchElement("name", "Exit ok")])[0]
+    _write_to_file("\n\n{}".format(repr(context_info_tree_for_exit_frame)))
+    exit_button = context_info_tree_for_exit_frame.get_by_attrs(
+        [SearchElement("role", "push button"), SearchElement("name", "Exit ok")]
+    )[0]
     logging.debug("Found element by role (push button) and name (Exit ok): {}".format(exit_menu))
     exit_button.click()
 
 
-def shutdown_app(jab_wrapper, context_info_tree):
-    open_menu_item_file(jab_wrapper, context_info_tree)
-    exit_menu = click_exit_menu(context_info_tree)
-    click_exit(jab_wrapper, exit_menu)
-
-
-def run_app_tests(jab_wrapper, window_id):
-    select_window(jab_wrapper, window_id)
-    context_info_tree = parse_elements(jab_wrapper)
-    set_focus(context_info_tree)
-    text_area = type_text_into_text_field(context_info_tree)
-    click_send_button(context_info_tree, text_area)
-    click_clear_button(context_info_tree, text_area)
-    verify_table_content(context_info_tree)
-    shutdown_app(jab_wrapper, context_info_tree)
-
-
-def main():
-    jab_wrapper: JavaAccessBridgeWrapper = None
-    try:
-        # Looks like Windows message pump must be run in the main thread, so
-        # we'll have to keep invoking it...
-        pipe = queue.Queue()
-        thread = threading.Thread(target=pump_background, daemon=True, args=[pipe])
-        thread.start()
-        jab_wrapper = pipe.get()
-        if not jab_wrapper:
-            raise Exception("Failed to initialize Java Access Bridge Wrapper")
-        time.sleep(0.5)
-
-        start_test_application("Chat Frame")
-        windows = jab_wrapper.get_windows()
-        title = windows[0].title
-        assert title == "Chat Frame", f"Invalid window found={title}"
-        run_app_tests(jab_wrapper, title)
-
-        start_test_application("Foo bar")
-        windows = jab_wrapper.get_windows()
-        title = windows[0].title
-        assert title == "Foo bar", f"Invalid window found={title}"
-        run_app_tests(jab_wrapper, windows[0].pid)
-    except Exception as e:
-        logging.error(f"error={type(e)} - {e}")
-    finally:
-        logging.info("Shutting down JAB wrapper")
-        if jab_wrapper:
-            jab_wrapper.shutdown()
-
-
-if __name__ == "__main__":
-    main()
+def test_app_flow(test_application):
+    set_focus(test_application)
+    text_area = type_text_into_text_field(test_application)
+    click_send_button(test_application, text_area)
+    click_clear_button(test_application, text_area)
+    verify_table_content(test_application)

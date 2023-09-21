@@ -1,6 +1,11 @@
-from JABWrapper.parsers.parser_if import Parser
-from JABWrapper.jab_types import AccessibleContextInfo, AccessibleHypertextInfo, JavaObject, MAX_HYPERLINKS
+from JABWrapper.jab_types import (
+    MAX_HYPERLINKS,
+    AccessibleContextInfo,
+    AccessibleHypertextInfo,
+    JavaObject,
+)
 from JABWrapper.jab_wrapper import JavaAccessBridgeWrapper
+from JABWrapper.parsers.parser_if import Parser
 
 
 class AccessibleHypertextParser(Parser):

@@ -1,0 +1,22 @@
+# List of codes:
+#  https://pycodestyle.pycqa.org/en/latest/intro.html#error-codes
+#  https://flake8.pycqa.org/en/latest/user/error-codes.html
+
+[flake8]
+ignore =
+    # W503: line break before binary operator
+    W503,
+    # E203: whitespace before ‘,’, ‘;’, or ‘:’
+    E203,
+    # E501: line too long (82 > 79 characters)
+    E501
+per-file-ignores =
+    # F401: module imported but unused
+    */__init__.py: F401
+exclude =
+    .git,
+    .venv
+
+max-complexity = 10
+# Subject to change after deciding upon a global Python library standard.
+max-line-length = 120
