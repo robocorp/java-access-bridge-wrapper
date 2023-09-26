@@ -74,12 +74,18 @@ def shutdown_app(jab_wrapper, context_info_tree):
 
 @pytest.fixture(params=["title", "pid"])
 def test_application(jab_wrapper, request):
+    context_info_tree = application_launcher(jab_wrapper, request.param)
+    yield context_info_tree
+
+    shutdown_app(jab_wrapper, context_info_tree)
+
+
+def application_launcher(jab_wrapper, by_attr):
     app_path = os.path.join(os.path.abspath(os.path.curdir), "tests", "test-app")
     # Compile a simple Java program.
     subprocess.run(["makejar.bat"], check=True, shell=True, cwd=app_path, close_fds=True)
     # Run the swing program in the background.
     logging.info("Opening Java Swing application...")
-    by_attr = request.param
     title = f"Chat Frame - By {by_attr}"
     subprocess.Popen(["java", "BasicSwing", title], cwd=app_path, close_fds=True)
 
@@ -97,9 +103,7 @@ def test_application(jab_wrapper, request):
     select_window(jab_wrapper, window_id)
     context_info_tree = parse_elements(jab_wrapper)
 
-    yield context_info_tree
-
-    shutdown_app(jab_wrapper, context_info_tree)
+    return context_info_tree
 
 
 def wait_until_text_contains(element: ContextNode, text: str, retries=10):
@@ -260,3 +264,30 @@ def test_app_flow(test_application):
     click_send_button(test_application, text_area)
     click_clear_button(test_application, text_area)
     verify_table_content(test_application)
+
+
+@pytest.fixture(
+    params=[
+        [["role", "push button", True], ["name", "Cl[a-z]{3}", False]],
+        [["role", "push button", True], ["name", "S.*1", False]],
+        [["role", "push button", True], ["name", ".*1", False]],
+        [["role", "push.*", False], ["name", "Clear", False]],
+    ]
+)
+def base_locator(jab_wrapper, request):
+    context_info_tree = application_launcher(jab_wrapper, "title")
+    logging.warning(request.param)
+    search_elements = []
+    for item in request.param:
+        search_elements.append(SearchElement(item[0], item[1], item[2]))
+
+    element = context_info_tree.get_by_attrs(search_elements)
+    logging.debug("Found element by role (push button) and name (Send): {}".format(element))
+    yield element
+
+    shutdown_app(jab_wrapper, context_info_tree)
+
+
+def test_locator_click(base_locator):
+    assert len(base_locator) == 1, "Elements found should have been 1 by locator={}".format(base_locator)
+    base_locator[0].click()
