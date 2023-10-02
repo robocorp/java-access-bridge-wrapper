@@ -5,12 +5,12 @@
 
 Python wrapper around the Java Access Bridge / Windows Access Bridge.
 
-# Prerequisites
+# Requirements
 
 * 64-bit Windows
 * Java >= 8 (https://docs.aws.amazon.com/corretto/latest/corretto-8-ug/downloads-list.html)
   * If you are doing development install JDK, otherwise JRE is enough
-* Python >= 3.7 (https://www.python.org/downloads/release/python-375/)
+* Python >= 3.8 (https://www.python.org/downloads/release/python-375/)
 
 Enable the Java Access Bridge in windows
 
@@ -67,30 +67,44 @@ Once the JABWrapper object is initialized, attach to some frame and optionally c
 
 # Development
 
-## Development prerequisites
+## Prerequisites
 
-* Install poetry: https://python-poetry.org/docs/
+1. Install Invoke, Poetry and the other required dependencies in order to be able to develop and package the library:
+   `pip install -Ur requirements.txt`.
+   - If you want to isolate these from the other projects and not rely on the OS
+     Python, enable a (_pyenv_) virtual environment first by following these
+     [instructions](https://github.com/robocorp/rpaframework/blob/master/docs/source/contributing/development.md#virtual-environments).
+2. Now you're ready to set-up Poetry for the first time with `inv setup`.
+   - Check with `-h` on how to pass credentials for ensuring that both your production  PyPI and CI DevPI are
+     configured. You'll find these in our **Robocorp** > **Shared** 1Password by searching for keywords like "pypi"
+     (where we recommend a personal _token_ instead) and "devpi".
+3. Run `inv update` so the library gets ready for development.
 
-## Test
+## Testing
 
-Run test script against simple Swing application
+Run test script against a simple Swing application.
 
 Set environment variable
 
     set RC_JAVA_ACCESS_BRIDGE_DLL="C:\path\to\Java\bin\WindowsAccessBridge-64.dll"
 
-Initialize poetry
+Update requirements and install the library in development mode
 
-    poetry intall
+    inv update
 
-Run test with poetry
+Run tests
 
-    poetry run python tests\test.py
+    inv test
 
 ## Packaging
 
-    poetry build
-    poetry publish
+Check linting
+
+    inv lint  # apply with '-a'
+
+Building and publishing
+
+    inv publish  # '-c' for DevPI
 
 ## TODO:
 

@@ -1,4 +1,5 @@
 import logging
+import re
 import threading
 from dataclasses import dataclass
 from typing import List
@@ -233,7 +234,7 @@ class ContextNode:
         for search_element in search_elements:
             attr = getattr(self._aci, search_element.name)
             if isinstance(attr, str) and not search_element.strict:
-                if not attr.startswith(search_element.value):
+                if not re.match(search_element.value, attr):
                     return False
             else:
                 if not attr == search_element.value:

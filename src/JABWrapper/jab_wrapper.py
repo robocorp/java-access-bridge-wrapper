@@ -698,7 +698,11 @@ class JavaAccessBridgeWrapper:
 
         logging.info(
             "Found Java window text={} pid={} hwnd={} vmID={} context={}\n".format(
-                java_window.title, java_window.pid, self._hwnd, self._vmID, self.context
+                java_window.title,
+                java_window.pid,
+                self._hwnd,
+                self._vmID,
+                self.context,
             )
         )
 

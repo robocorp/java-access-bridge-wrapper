@@ -1,0 +1,10 @@
+[virtualenvs]
+in-project = true
+create = true
+path = "null"
+
+[installer]
+parallel = true
+
+[repositories.devpi]
+url = "https://devpi.robocorp.cloud/ci/test"
