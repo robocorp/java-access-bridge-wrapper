@@ -18,5 +18,5 @@ exclude =
     .venv
 
 max-complexity = 10
-# Subject to change after deciding upon a standard.
+# Subject to change after deciding upon a global Python library standard.
 max-line-length = 120
