@@ -18,6 +18,9 @@ GetMessage = ctypes.windll.user32.GetMessageW
 TranslateMessage = ctypes.windll.user32.TranslateMessage
 DispatchMessage = ctypes.windll.user32.DispatchMessageW
 
+ENABLE_CALLBACKS = [True, False]
+WINDOW_SELECTION = ["title", "pid"]
+
 
 # Initialize and launch the Java test app.
 
@@ -38,7 +41,7 @@ def _pump_background(pipe: queue.Queue, *, enable_callbacks: bool):
         logging.info("Stopped processing events")
 
 
-@pytest.fixture(scope="session", params=[True, False])
+@pytest.fixture(scope="session", params=ENABLE_CALLBACKS)
 def jab_wrapper(request):
     logging.info("Starting the JAB wrapper")
     pipe = queue.Queue()
@@ -180,14 +183,17 @@ def shutdown_app(jab_wrapper, context_info_tree):
 # Test a basic app flow with multiple window selections and callback switches.
 
 
-@pytest.fixture(params=["title", "pid"])
+@pytest.fixture(params=WINDOW_SELECTION)
 def app_context(jab_wrapper, request):
     context_info_tree = application_launcher(jab_wrapper, request.param)
     yield context_info_tree
     shutdown_app(jab_wrapper, context_info_tree)
 
 
-def wait_until_text_contains(element: ContextNode, text: str, retries=10):
+def wait_until_text_contains(element: ContextNode, text: str, *, jab_wrapper, retries=10):
+    if jab_wrapper.ignore_callbacks:
+        element.refresh()
+
     logging.info(element.text)
     for i in range(retries):
         if text in element.text.items.sentence:
@@ -198,7 +204,10 @@ def wait_until_text_contains(element: ContextNode, text: str, retries=10):
         raise Exception(f"Text={text} not found in element={element}")
 
 
-def wait_until_text_cleared(element: ContextNode, retries=10):
+def wait_until_text_cleared(element: ContextNode, *, jab_wrapper, retries=10):
+    if jab_wrapper.ignore_callbacks:
+        element.refresh()
+
     for i in range(retries):
         if element.text.items.sentence == "":
             return
@@ -208,14 +217,14 @@ def wait_until_text_cleared(element: ContextNode, retries=10):
         raise Exception(f"Text element not cleared={element}")
 
 
-def type_text_into_text_field(context_info_tree) -> ContextNode:
+def type_text_into_text_field(context_info_tree, *, jab_wrapper) -> ContextNode:
     # Type text into text field
     text = "Hello World"
     logging.info("Typing text into text field")
     text_area = context_info_tree.get_by_attrs([SearchElement("role", "text")])[0]
     logging.debug("Found element by role (text): {}".format(text_area))
     text_area.insert_text(text)
-    wait_until_text_contains(text_area, text)
+    wait_until_text_contains(text_area, text, jab_wrapper=jab_wrapper)
     return text_area
 
 
@@ -227,7 +236,7 @@ def set_focus(context_info_tree):
     root_pane.request_focus()
 
 
-def click_send_button(context_info_tree, text_area):
+def click_send_button(context_info_tree, text_area, *, jab_wrapper):
     # Click the send button
     logging.info("Clicking the send button")
     send_button = context_info_tree.get_by_attrs(
@@ -235,7 +244,7 @@ def click_send_button(context_info_tree, text_area):
     )[0]
     logging.debug("Found element by role (push button) and name (Send): {}".format(send_button))
     send_button.click()
-    wait_until_text_contains(text_area, "default text")
+    wait_until_text_contains(text_area, "default text", jab_wrapper=jab_wrapper)
 
 
 def select_combobox(jab_wrapper, context_info_tree, text_area):
@@ -252,7 +261,7 @@ def select_combobox(jab_wrapper, context_info_tree, text_area):
     jab_wrapper.clear_accessible_selection_from_context(combo_box_menu.context)
 
 
-def click_clear_button(context_info_tree, text_area):
+def click_clear_button(context_info_tree, text_area, *, jab_wrapper):
     # Click the clear button
     logging.info("Clicking the clear button")
     clear_button = context_info_tree.get_by_attrs(
@@ -260,17 +269,18 @@ def click_clear_button(context_info_tree, text_area):
     )[0]
     logging.debug("Found element by role (push button) and name (Clear): {}".format(clear_button))
     clear_button.click()
-    wait_until_text_cleared(text_area)
+    wait_until_text_cleared(text_area, jab_wrapper=jab_wrapper)
 
 
 def verify_table_content(context_info_tree):
     # Assert visible children are found under the table object
     table = context_info_tree.get_by_attrs([SearchElement("role", "table")])[0]
-    visible_children = table.get_visible_children()
-    assert table.visible_children_count == len(visible_children), "visible child count incorrect"
+    visible_children_count = len(table.get_visible_children())
+    logging.info("Table returned %d visible children.", visible_children_count)
+    assert table.visible_children_count == visible_children_count, "visible children count incorrect"
 
 
-def update_and_refresh_table(jab_wrapper, context_info_tree):
+def update_and_refresh_table(context_info_tree, *, jab_wrapper):
     table = context_info_tree.get_by_attrs([SearchElement("role", "table")])[0]
     logging.debug("Found table: %s", table)
     initial_children = len(table.children)
@@ -301,12 +311,14 @@ def update_and_refresh_table(jab_wrapper, context_info_tree):
     assert total_children == 2 * initial_children, "children number didn't change after a manual refresh"
 
 
-def test_app_flow(app_context):
+def test_app_flow(jab_wrapper, app_context):
     set_focus(app_context)
-    text_area = type_text_into_text_field(app_context)
-    click_send_button(app_context, text_area)
-    click_clear_button(app_context, text_area)
+    text_area = type_text_into_text_field(app_context, jab_wrapper=jab_wrapper)
+    click_send_button(app_context, text_area, jab_wrapper=jab_wrapper)
+    click_clear_button(app_context, text_area, jab_wrapper=jab_wrapper)
     verify_table_content(app_context)
+    update_and_refresh_table(app_context, jab_wrapper=jab_wrapper)
+    verify_table_content(app_context)  # should return more visible children
 
 
 # Other tests relying on a single normal Java test app instance run.
