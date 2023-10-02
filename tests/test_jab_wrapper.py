@@ -18,8 +18,9 @@ GetMessage = ctypes.windll.user32.GetMessageW
 TranslateMessage = ctypes.windll.user32.TranslateMessage
 DispatchMessage = ctypes.windll.user32.DispatchMessageW
 
-ENABLE_CALLBACKS = [True, False]
-WINDOW_SELECTION = ["title", "pid"]
+
+CALLBACKS_SWITCHES = [{"enable": False, "simple": True}, {"enable": True, "simple": False}]
+WINDOW_SELECTIONS = [{"by_attr": "title", "simple": True}, {"by_attr": "pid", "simple": False}]
 
 
 # Initialize and launch the Java test app.
@@ -41,12 +42,21 @@ def _pump_background(pipe: queue.Queue, *, enable_callbacks: bool):
         logging.info("Stopped processing events")
 
 
-@pytest.fixture(scope="session", params=ENABLE_CALLBACKS)
-def jab_wrapper(request):
+@pytest.fixture(scope="session", params=CALLBACKS_SWITCHES)
+def enable_callbacks(request):
+    enable, simple = request.param["enable"], request.param["simple"]
+    if request.config.option.simple and not simple:
+        pytest.skip("not simple")
+
+    yield enable
+
+
+@pytest.fixture(scope="session")
+def jab_wrapper(enable_callbacks):
     logging.info("Starting the JAB wrapper")
     pipe = queue.Queue()
     thread = threading.Thread(
-        target=_pump_background, daemon=True, args=[pipe], kwargs={"enable_callbacks": request.param}
+        target=_pump_background, daemon=True, args=[pipe], kwargs={"enable_callbacks": enable_callbacks}
     )
     thread.start()
     jab_wrapper = pipe.get()
@@ -83,15 +93,15 @@ def select_window(jab_wrapper, window_id):
     )
 
 
-def parse_elements(jab_wrapper) -> ContextTree:
+def parse_elements(jab_wrapper, max_depth=None) -> ContextTree:
     # Parse the element tree of the window
     logging.info("Getting context tree")
-    context_info_tree = ContextTree(jab_wrapper)
+    context_info_tree = ContextTree(jab_wrapper, max_depth=max_depth)
     _write_to_file(repr(context_info_tree), mode="w")
     return context_info_tree
 
 
-def application_launcher(jab_wrapper, by_attr):
+def application_launcher(jab_wrapper, *, by_attr):
     app_path = os.path.join(os.path.abspath(os.path.curdir), "tests", "test-app")
     # Compile a simple Java program.
     subprocess.run(["makejar.bat"], check=True, shell=True, cwd=app_path, close_fds=True)
@@ -183,9 +193,18 @@ def shutdown_app(jab_wrapper, context_info_tree):
 # Test a basic app flow with multiple window selections and callback switches.
 
 
-@pytest.fixture(params=WINDOW_SELECTION)
-def app_context(jab_wrapper, request):
-    context_info_tree = application_launcher(jab_wrapper, request.param)
+@pytest.fixture(scope="session", params=WINDOW_SELECTIONS)
+def window_selection(request):
+    by_attr, simple = request.param["by_attr"], request.param["simple"]
+    if request.config.option.simple and not simple:
+        pytest.skip("not simple")
+
+    yield by_attr
+
+
+@pytest.fixture(scope="session")
+def app_context(jab_wrapper, window_selection):
+    context_info_tree = application_launcher(jab_wrapper, by_attr=window_selection)
     yield context_info_tree
     shutdown_app(jab_wrapper, context_info_tree)
 
@@ -321,9 +340,6 @@ def test_app_flow(jab_wrapper, app_context):
     verify_table_content(app_context)  # should return more visible children
 
 
-# Other tests relying on a single normal Java test app instance run.
-
-
 @pytest.fixture(
     params=[
         [["role", "push button", True], ["name", "Cl[a-z]{3}", False]],
@@ -332,20 +348,25 @@ def test_app_flow(jab_wrapper, app_context):
         [["role", "push.*", False], ["name", "Clear", False]],
     ]
 )
-def base_locator(jab_wrapper, request):
-    context_info_tree = application_launcher(jab_wrapper, "title")
-    logging.warning(request.param)
+def regex_elements(app_context, request):
+    logging.info(request.param)
     search_elements = []
     for item in request.param:
         search_elements.append(SearchElement(item[0], item[1], item[2]))
 
-    element = context_info_tree.get_by_attrs(search_elements)
-    logging.debug("Found element by role (push button) and name (Send): {}".format(element))
-    yield element
-
-    shutdown_app(jab_wrapper, context_info_tree)
+    elements = app_context.get_by_attrs(search_elements)
+    logging.debug("Found nodes: %s", elements)
+    yield elements
 
 
-def test_locator_click(base_locator):
-    assert len(base_locator) == 1, "Elements found should have been 1 by locator={}".format(base_locator)
-    base_locator[0].click()
+def test_regex_locator_click(regex_elements):
+    assert len(regex_elements) == 1, f"due to elements: {regex_elements}"
+    regex_elements[0].click()
+
+
+def test_depth(jab_wrapper, app_context):
+    max_children = len(list(app_context))
+    minimal_context = parse_elements(jab_wrapper, max_depth=2)
+    min_children = len(list(minimal_context))
+    logging.info("Found %d immediate nodes out of %d in total.", min_children, max_children)
+    assert min_children != max_children

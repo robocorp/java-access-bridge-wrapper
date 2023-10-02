@@ -2,7 +2,7 @@ import logging
 import re
 import threading
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 from JABWrapper.jab_types import AccessibleContextInfo, JavaObject
 from JABWrapper.jab_wrapper import JavaAccessBridgeWrapper
@@ -41,12 +41,14 @@ class ContextNode:
         lock: threading.RLock,
         ancestry: int = 0,
         parse_children: bool = True,
+        max_depth: Optional[int] = None,
     ) -> None:
         self._jab_wrapper = jab_wrapper
         self._lock = lock
         self.ancestry = ancestry
         self.context: JavaObject = context
         self._should_parse_children = parse_children
+        self._max_depth = max_depth
 
         self.state = None
         self.visible_children_count = 0
@@ -120,9 +122,19 @@ class ContextNode:
         self._aci = context_info
 
     def _parse_children(self) -> None:
+        if self._max_depth is not None and self.ancestry >= self._max_depth:
+            return
+
         for i in range(0, self._aci.childrenCount):
             child_context = self._jab_wrapper.get_child_context(self.context, i)
-            child_node = ContextNode(self._jab_wrapper, child_context, self._lock, self.ancestry + 1)
+            child_node = ContextNode(
+                self._jab_wrapper,
+                child_context,
+                self._lock,
+                self.ancestry + 1,
+                parse_children=self._should_parse_children,
+                max_depth=self._max_depth,
+            )
             self._children.append(child_node)
 
     def refresh(self):
@@ -193,7 +205,7 @@ class ContextNode:
         """
         Returns node info for all searchable elements.
         """
-        nodes = list()
+        nodes = []
         nodes.append(
             NodeLocator(
                 self.context_info.name,
@@ -210,7 +222,7 @@ class ContextNode:
             )
         )
         for child in self.children:
-            nodes += child.get_search_element_tree()
+            nodes.extend(child.get_search_element_tree())
         return nodes
 
     def traverse(self):
@@ -243,7 +255,7 @@ class ContextNode:
 
     def get_by_attrs(self, search_elements: List[SearchElement]) -> List:
         """
-        Get element with given seach attributes.
+        Get element with given search attributes.
 
         The SearchElement object takes a name of the field and the field value. For example:
 
@@ -330,10 +342,10 @@ class ContextNode:
 
 class ContextTree:
     @log_exec_time("Init context tree")
-    def __init__(self, jab_wrapper: JavaAccessBridgeWrapper) -> None:
+    def __init__(self, jab_wrapper: JavaAccessBridgeWrapper, max_depth: Optional[int] = None) -> None:
         self._lock = threading.RLock()
         self._jab_wrapper = jab_wrapper
-        self.root = ContextNode(jab_wrapper, jab_wrapper.context, self._lock)
+        self.root = ContextNode(jab_wrapper, jab_wrapper.context, self._lock, parse_children=True, max_depth=max_depth)
         self._register_callbacks()
 
     def __iter__(self):
