@@ -355,7 +355,7 @@ def regex_elements(app_context, request):
         search_elements.append(SearchElement(item[0], item[1], item[2]))
 
     elements = app_context.get_by_attrs(search_elements)
-    logging.debug("Found nodes: %s", elements)
+    logging.debug("Found elements: %s", elements)
     yield elements
 
 
@@ -368,5 +368,5 @@ def test_depth(jab_wrapper, app_context):
     max_children = len(list(app_context))
     minimal_context = parse_elements(jab_wrapper, max_depth=2)
     min_children = len(list(minimal_context))
-    logging.info("Found %d immediate nodes out of %d in total.", min_children, max_children)
+    logging.info("Found %d immediate elements out of %d in total.", min_children, max_children)
     assert min_children != max_children
