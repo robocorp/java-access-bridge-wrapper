@@ -63,7 +63,7 @@ class ContextNode:
         with self._lock:
             return self._children
 
-    def _parse_context(self) -> None:
+    def parse_context(self) -> None:
         logging.debug(f"Parsing element={self.context}")
         self._aci: AccessibleContextInfo = self._jab_wrapper.get_context_info(self.context)
         logging.debug(f"Parsed element info={self._aci}")
@@ -146,7 +146,7 @@ class ContextNode:
         with self._lock:
             self.state = None
             self._children.clear()
-            self._parse_context()
+            self.parse_context()
             if self._should_parse_children:
                 self._parse_children()
 
@@ -405,7 +405,7 @@ class ContextTree:
         with self._lock:
             node: ContextNode = self.root._get_node_by_context(source)
             if node:
-                node._parse_context()
+                node.parse_context()
                 logging.debug(f"Selected text changed for node={node}")
 
     @retry_callback
@@ -413,7 +413,7 @@ class ContextTree:
         with self._lock:
             node: ContextNode = self.root._get_node_by_context(source)
             if node:
-                node._parse_context()
+                node.parse_context()
                 logging.debug(f"Text changed for node={node}")
 
     @retry_callback
@@ -522,7 +522,7 @@ class ContextTree:
         are generated from the Access Bridge
         """
         if self._jab_wrapper.ignore_callbacks:
-            logging.debug("Ignoring callback regitering for Context Node")
+            logging.debug("Ignoring callback registering for Context Node")
             return
 
         self._jab_wrapper.clear_callbacks()

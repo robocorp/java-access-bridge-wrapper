@@ -308,7 +308,8 @@ def update_and_refresh_table(context_info_tree, *, jab_wrapper):
     update_button = context_info_tree.get_by_attrs(
         [SearchElement("role", "push button"), SearchElement("name", "Update")]
     )[0]
-    logging.debug("Found 'Update' button: %s", update_button)
+    actions = update_button.get_actions()
+    logging.debug("Found 'Update' button %r with actions: %s", update_button, actions)
     update_button.click()
 
     expected_total_children = initial_children

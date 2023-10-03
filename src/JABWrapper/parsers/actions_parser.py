@@ -28,7 +28,7 @@ class AccessibleActionsParser(Parser):
                 self._actions[actionInfo.name.lower()] = actionInfo
 
     def list_actions(self) -> List[str]:
-        return self._actions.keys()
+        return list(self._actions)
 
     def do_action(self, jab_wrapper: JavaAccessBridgeWrapper, context: JavaObject, action: str) -> None:
         if not action.lower() in self._actions:
