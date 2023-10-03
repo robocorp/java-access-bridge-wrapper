@@ -8,7 +8,7 @@
 ## 1.0.0 (date: 26.09.2023)
 
 - Regular expression support with elements search
-- Full project revamp and DX improvement
+- Full project revamp and DX improvement (no breaking user-facing API changes, just started to follow semver)
 
 ## 0.12.0 (date: 08.06.2023)
 
