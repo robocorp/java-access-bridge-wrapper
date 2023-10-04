@@ -165,13 +165,15 @@ class JavaAccessBridgeWrapper:
 
     def _init(self) -> None:
         logging.debug("Loading WindowsAccessBridge")
-
         if "RC_JAVA_ACCESS_BRIDGE_DLL" not in os.environ:
             raise OSError("Environment variable: RC_JAVA_ACCESS_BRIDGE_DLL not found")
         if not os.path.isfile(os.path.normpath(os.environ["RC_JAVA_ACCESS_BRIDGE_DLL"])):
             raise FileNotFoundError(f"File not found: {os.environ['RC_JAVA_ACCESS_BRIDGE_DLL']}")
         self._wab: cdll = cdll.LoadLibrary(os.path.normpath(os.environ["RC_JAVA_ACCESS_BRIDGE_DLL"]))
         logging.debug("WindowsAccessBridge loaded succesfully")
+
+        # Any reader can register callbacks here that are executed when `AccessBridge` events are seen.
+        self._context_callbacks: dict[str, List[Callable[[JavaObject], None]]] = dict()
         self._define_functions()
         if not self.ignore_callbacks:
             self._define_callbacks()
@@ -182,13 +184,10 @@ class JavaAccessBridgeWrapper:
         self._vmID = c_long()
         self.context = JavaObject()
 
-        # Any reader can register callbacks here that are executed when AccessBridge events are seen
-        self._context_callbacks: dict[str, List[Callable[[JavaObject], None]]] = dict()
-
     def shutdown(self):
-        self._context_callbacks = dict()
         if not self.ignore_callbacks:
             self._remove_callbacks()
+        self._context_callbacks.clear()
 
     def _define_functions(self) -> None:
         # void Windows_run()
@@ -628,7 +627,7 @@ class JavaAccessBridgeWrapper:
         Raises:
             Exception: Window not found.
         """
-        self._context_callbacks = dict()
+        self._context_callbacks.clear()
         self._hwnd: wintypes.HWND = None
         self._vmID = c_long()
         self.context = JavaObject()
@@ -673,7 +672,7 @@ class JavaAccessBridgeWrapper:
         Raises:
             Exception: Window not found.
         """
-        self._context_callbacks = dict()
+        self._context_callbacks.clear()
         self._hwnd: wintypes.HWND = None
         self._vmID = c_long()
         self.context = JavaObject()
