@@ -314,15 +314,15 @@ def update_and_refresh_table(context_info_tree, *, jab_wrapper):
 
     expected_total_children = initial_children
     err = "children number changed without refresh"
-    no_callbacks = jab_wrapper.ignore_callbacks
-    if not no_callbacks:
+    callbacks_on = not jab_wrapper.ignore_callbacks
+    if callbacks_on:
         # Populating the table will trigger a callback which will automatically
         #  refresh it. We just need to wait a while and adjust our expectations.
         time.sleep(0.1)
         expected_total_children = 2 * initial_children
         err = "children number didn't change after an automatic refresh"
     total_children = len(table.children)
-    logging.info("Total children (pre-refresh; callbacks: %s): %d", "OFF" if no_callbacks else "ON", total_children)
+    logging.info("Total children (pre-refresh; callbacks: %s): %d", "ON" if callbacks_on else "OFF", total_children)
     assert total_children == expected_total_children, err
 
     table.refresh()
