@@ -20,7 +20,7 @@ from ctypes import (
     wintypes,
 )
 from dataclasses import dataclass
-from typing import Callable, List, Tuple
+from typing import Callable, List, Optional, Tuple
 
 import win32process
 
@@ -165,30 +165,29 @@ class JavaAccessBridgeWrapper:
 
     def _init(self) -> None:
         logging.debug("Loading WindowsAccessBridge")
-
         if "RC_JAVA_ACCESS_BRIDGE_DLL" not in os.environ:
             raise OSError("Environment variable: RC_JAVA_ACCESS_BRIDGE_DLL not found")
         if not os.path.isfile(os.path.normpath(os.environ["RC_JAVA_ACCESS_BRIDGE_DLL"])):
             raise FileNotFoundError(f"File not found: {os.environ['RC_JAVA_ACCESS_BRIDGE_DLL']}")
         self._wab: cdll = cdll.LoadLibrary(os.path.normpath(os.environ["RC_JAVA_ACCESS_BRIDGE_DLL"]))
         logging.debug("WindowsAccessBridge loaded succesfully")
+
+        # Any reader can register callbacks here that are executed when `AccessBridge` events are seen.
+        self._context_callbacks: dict[str, List[Callable[[JavaObject], None]]] = dict()
         self._define_functions()
         if not self.ignore_callbacks:
             self._define_callbacks()
             self._set_callbacks()
         self._wab.Windows_run()
 
-        self._hwnd: wintypes.HWND = None
+        self._hwnd: Optional[wintypes.HWND] = None
         self._vmID = c_long()
         self.context = JavaObject()
 
-        # Any reader can register callbacks here that are executed when AccessBridge events are seen
-        self._context_callbacks: dict[str, List[Callable[[JavaObject], None]]] = dict()
-
     def shutdown(self):
-        self._context_callbacks = dict()
         if not self.ignore_callbacks:
             self._remove_callbacks()
+        self._context_callbacks.clear()
 
     def _define_functions(self) -> None:
         # void Windows_run()
@@ -628,7 +627,7 @@ class JavaAccessBridgeWrapper:
         Raises:
             Exception: Window not found.
         """
-        self._context_callbacks = dict()
+        self._context_callbacks.clear()
         self._hwnd: wintypes.HWND = None
         self._vmID = c_long()
         self.context = JavaObject()
@@ -654,11 +653,7 @@ class JavaAccessBridgeWrapper:
 
         logging.info(
             "Found Java window text={} pid={} hwnd={} vmID={} context={}\n".format(
-                java_window.title,
-                java_window.pid,
-                self._hwnd,
-                self._vmID,
-                self.context,
+                java_window.title, java_window.pid, self._hwnd, self._vmID, self.context
             )
         )
 
@@ -677,7 +672,7 @@ class JavaAccessBridgeWrapper:
         Raises:
             Exception: Window not found.
         """
-        self._context_callbacks = dict()
+        self._context_callbacks.clear()
         self._hwnd: wintypes.HWND = None
         self._vmID = c_long()
         self.context = JavaObject()
@@ -1818,10 +1813,7 @@ class JavaAccessBridgeWrapper:
             * popup_menu_will_become_visible
         """
         logging.debug(f"Registering callback={name}")
-        if name in self._context_callbacks:
-            self._context_callbacks[name].append(callback)
-        else:
-            self._context_callbacks[name] = [callback]
+        self._context_callbacks.setdefault(name, []).append(callback)
 
     def clear_callbacks(self):
         self._context_callbacks.clear()

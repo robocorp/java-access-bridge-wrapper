@@ -94,7 +94,9 @@ Update requirements and install the library in development mode
 
 Run tests
 
-    inv test
+    inv test  # runs all the tests in all scenarios
+    inv test -s -t test_jab_wrapper.py  # runs all the tests from a file in one simple common scenario
+    inv test -s -c -t test_jab_wrapper.py::test_depth  # as above, but specific test and captures output
 
 ## Packaging
 

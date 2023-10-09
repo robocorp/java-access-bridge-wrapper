@@ -2,7 +2,7 @@ import logging
 import re
 import threading
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 from JABWrapper.jab_types import AccessibleContextInfo, JavaObject
 from JABWrapper.jab_wrapper import JavaAccessBridgeWrapper
@@ -35,21 +35,35 @@ class NodeLocator:
 
 class ContextNode:
     def __init__(
-        self, jab_wrapper: JavaAccessBridgeWrapper, context: JavaObject, lock, ancestry: int = 0, parse_children=True
+        self,
+        jab_wrapper: JavaAccessBridgeWrapper,
+        context: JavaObject,
+        lock: threading.RLock,
+        ancestry: int = 0,
+        parse_children: bool = True,
+        max_depth: Optional[int] = None,
     ) -> None:
         self._jab_wrapper = jab_wrapper
         self._lock = lock
         self.ancestry = ancestry
         self.context: JavaObject = context
+        self._should_parse_children = parse_children
+        self._max_depth = max_depth
+
         self.state = None
         self.visible_children_count = 0
         self.virtual_accessible_name = None
-        self._parse_context()
-        self.children: list[ContextNode] = []
-        if parse_children:
-            self._parse_children()
+        self._children: list[ContextNode] = []
 
-    def _parse_context(self) -> None:
+        # Populate the element with data and its children if enabled.
+        self.refresh()
+
+    @property
+    def children(self):
+        with self._lock:
+            return self._children
+
+    def parse_context(self) -> None:
         logging.debug(f"Parsing element={self.context}")
         self._aci: AccessibleContextInfo = self._jab_wrapper.get_context_info(self.context)
         logging.debug(f"Parsed element info={self._aci}")
@@ -108,10 +122,33 @@ class ContextNode:
         self._aci = context_info
 
     def _parse_children(self) -> None:
+        if self._max_depth is not None and self.ancestry >= self._max_depth:
+            return
+
         for i in range(0, self._aci.childrenCount):
             child_context = self._jab_wrapper.get_child_context(self.context, i)
-            child_node = ContextNode(self._jab_wrapper, child_context, self._lock, self.ancestry + 1)
-            self.children.append(child_node)
+            child_node = ContextNode(
+                self._jab_wrapper,
+                child_context,
+                self._lock,
+                self.ancestry + 1,
+                parse_children=self._should_parse_children,
+                max_depth=self._max_depth,
+            )
+            self._children.append(child_node)
+
+    def refresh(self):
+        """Refresh the current element and its children only.
+
+        Useful when you want to refresh just a subtree of elements starting from the
+        current one as root, instead of the entire app.
+        """
+        with self._lock:
+            self.state = None
+            self._children.clear()
+            self.parse_context()
+            if self._should_parse_children:
+                self._parse_children()
 
     def __repr__(self) -> str:
         """
@@ -166,9 +203,9 @@ class ContextNode:
 
     def get_search_element_tree(self) -> List[NodeLocator]:
         """
-        Returns node info for all searcheable elements.
+        Returns node info for all searchable elements.
         """
-        nodes = list()
+        nodes = []
         nodes.append(
             NodeLocator(
                 self.context_info.name,
@@ -185,7 +222,7 @@ class ContextNode:
             )
         )
         for child in self.children:
-            nodes += child.get_search_element_tree()
+            nodes.extend(child.get_search_element_tree())
         return nodes
 
     def traverse(self):
@@ -200,15 +237,10 @@ class ContextNode:
         if self._jab_wrapper.is_same_object(self.context, context):
             return self
         else:
-            for child in self.children:
+            for child in self._children:
                 node = child._get_node_by_context(context)
                 if node:
                     return node
-
-    def _update_node(self) -> None:
-        self.children = []
-        self._parse_context()
-        self._parse_children()
 
     def _match_attrs(self, search_elements: List[SearchElement]) -> bool:
         for search_element in search_elements:
@@ -223,7 +255,7 @@ class ContextNode:
 
     def get_by_attrs(self, search_elements: List[SearchElement]) -> List:
         """
-        Get element with given seach attributes.
+        Get element with given search attributes.
 
         The SearchElement object takes a name of the field and the field value. For example:
 
@@ -237,7 +269,7 @@ class ContextNode:
             found = self._match_attrs(search_elements)
             if found:
                 elements.append(self)
-            for child in self.children:
+            for child in self._children:
                 child_elements = child.get_by_attrs(search_elements)
                 elements.extend(child_elements)
             return elements
@@ -294,11 +326,15 @@ class ContextNode:
         visible_children = []
         logging.debug(f"Expected visible children count={self.visible_children_count}")
         if self.visible_children_count > 0:
-            found_visible_children = self._jab_wrapper.get_visible_children(self.context, 0)
+            visible_children_info = self._jab_wrapper.get_visible_children(self.context, 0)
             logging.debug(f"Found visible children count={self.visible_children_count}")
-            for i in range(0, found_visible_children.returnedChildrenCount):
+            for i in range(0, visible_children_info.returnedChildrenCount):
                 visible_child = ContextNode(
-                    self._jab_wrapper, found_visible_children.children[i], self._lock, self.ancestry + 1, False
+                    self._jab_wrapper,
+                    visible_children_info.children[i],
+                    self._lock,
+                    self.ancestry + 1,
+                    parse_children=False,
                 )
                 visible_children.append(visible_child)
         return visible_children
@@ -306,10 +342,10 @@ class ContextNode:
 
 class ContextTree:
     @log_exec_time("Init context tree")
-    def __init__(self, jab_wrapper: JavaAccessBridgeWrapper) -> None:
+    def __init__(self, jab_wrapper: JavaAccessBridgeWrapper, max_depth: Optional[int] = None) -> None:
         self._lock = threading.RLock()
         self._jab_wrapper = jab_wrapper
-        self.root = ContextNode(jab_wrapper, jab_wrapper.context, self._lock)
+        self.root = ContextNode(jab_wrapper, jab_wrapper.context, self._lock, parse_children=True, max_depth=max_depth)
         self._register_callbacks()
 
     def __iter__(self):
@@ -369,7 +405,7 @@ class ContextTree:
         with self._lock:
             node: ContextNode = self.root._get_node_by_context(source)
             if node:
-                node._parse_context()
+                node.parse_context()
                 logging.debug(f"Selected text changed for node={node}")
 
     @retry_callback
@@ -377,7 +413,7 @@ class ContextTree:
         with self._lock:
             node: ContextNode = self.root._get_node_by_context(source)
             if node:
-                node._parse_context()
+                node.parse_context()
                 logging.debug(f"Text changed for node={node}")
 
     @retry_callback
@@ -390,7 +426,7 @@ class ContextTree:
         with self._lock:
             node = self.root._get_node_by_context(source)
             if node:
-                node._update_node()
+                node.refresh()
                 logging.debug(f"Visible data changed for node tree={repr(node)}")
 
     @retry_callback
@@ -486,7 +522,7 @@ class ContextTree:
         are generated from the Access Bridge
         """
         if self._jab_wrapper.ignore_callbacks:
-            logging.debug("Ignoring callback regitering for Context Node")
+            logging.debug("Ignoring callback registering for Context Node")
             return
 
         self._jab_wrapper.clear_callbacks()

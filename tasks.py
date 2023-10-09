@@ -92,10 +92,12 @@ def lint(ctx, apply: bool = False):
 @task(
     help={
         "verbose": "Display detailed information with this on.",
-        "capture_output": "Displays printed information in the console.",
+        "capture_output": "Display printed information in the console.",
+        "test": "Run specific test. (e.g.: 'test_jab_wrapper.py::test_app_flow')",
+        "simple": "Test a single title-based scenario with disabled callbacks."
     },
 )
-def test(ctx, verbose: bool = False, capture_output: bool = False):
+def test(ctx, verbose: bool = False, capture_output: bool = False, test: Optional[str] = None, simple: bool = False):
     """Run tests."""
     pytest_args = []
     if verbose:
@@ -106,8 +108,17 @@ def test(ctx, verbose: bool = False, capture_output: bool = False):
     pytest_args.append(f"-o log_level={log_level}")
     if capture_output:
         pytest_args.extend(["-s", "-o log_cli=true", f"-o log_cli_level={log_level}"])
+    if simple:
+        pytest_args.append("--simple")
     pytest_opts = " ".join(pytest_args)
-    poetry(ctx, f"run pytest {pytest_opts} tests")
+    target = "tests"
+    if test:
+        parts = test.split("::", 1)
+        target = f"{Path(target) / parts[0]}"
+        if len(parts) == 2:
+            target = f"{target}::{parts[1]}"
+
+    poetry(ctx, f"run pytest {pytest_opts} {target}")
 
 
 @task(
