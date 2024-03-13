@@ -1,5 +1,9 @@
 # Java Access Bridge Wrapper changelog
 
+## 1.2.0 (date: 13.03.2024)
+
+- Added parent Node to ContextNode - useful for creating correct hierarchies between nodes
+
 ## 1.1.0 (date: 03.10.2023)
 
 - Add node/element refresh capability

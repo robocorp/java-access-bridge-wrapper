@@ -42,6 +42,7 @@ class ContextNode:
         ancestry: int = 0,
         parse_children: bool = True,
         max_depth: Optional[int] = None,
+        parent: Optional["ContextNode"] = None,
     ) -> None:
         self._jab_wrapper = jab_wrapper
         self._lock = lock
@@ -54,6 +55,8 @@ class ContextNode:
         self.visible_children_count = 0
         self.virtual_accessible_name = None
         self._children: list[ContextNode] = []
+
+        self.parent: Optional[ContextNode] = parent
 
         # Populate the element with data and its children if enabled.
         self.refresh()
@@ -134,6 +137,7 @@ class ContextNode:
                 self.ancestry + 1,
                 parse_children=self._should_parse_children,
                 max_depth=self._max_depth,
+                parent=self,
             )
             self._children.append(child_node)
 
@@ -335,6 +339,7 @@ class ContextNode:
                     self._lock,
                     self.ancestry + 1,
                     parse_children=False,
+                    parent=self,
                 )
                 visible_children.append(visible_child)
         return visible_children
