@@ -135,3 +135,7 @@ BasicSwing.class
 
 # Java
 *.class
+
+
+# Output
+output/
