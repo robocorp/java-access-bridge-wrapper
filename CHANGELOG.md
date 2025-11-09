@@ -1,5 +1,10 @@
 # Java Access Bridge Wrapper changelog
 
+## 2.0.0 (date: 26.10.2025)
+
+- Dropped support for python 3.8
+- Updated pywin32 version limit to 311, bumped develpment tooling versions
+
 ## 1.2.0 (date: 13.03.2024)
 
 - Added parent Node to ContextNode - useful for creating correct hierarchies between nodes
