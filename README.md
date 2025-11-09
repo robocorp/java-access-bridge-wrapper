@@ -10,7 +10,7 @@ Python wrapper around the Java Access Bridge / Windows Access Bridge.
 * 64-bit Windows
 * Java >= 8 (https://docs.aws.amazon.com/corretto/latest/corretto-8-ug/downloads-list.html)
   * If you are doing development install JDK, otherwise JRE is enough
-* Python >= 3.8 (https://www.python.org/downloads/release/python-375/)
+* Python >= 3.9 (https://www.python.org/downloads/release/python-390/)
 
 Enable the Java Access Bridge in windows
 
