@@ -1,14 +1,13 @@
-[tool.poetry]
+[project]
 name = "java-access-bridge-wrapper"
 version = "2.0.0"
 description = "Python wrapper for the Windows Java Access Bridge"
-license = "Apache-2.0"
 readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.9.1,<4.0"
 authors = [
-	"Robocorp <support@robocorp.com>",
+    { name = "Robocorp", email = "support@robocorp.com" },
 ]
-repository = "https://github.com/robocorp/java-access-bridge-wrapper.git"
-
 classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Development Status :: 4 - Beta",
@@ -19,31 +18,38 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
 ]
-
-packages = [
-    { include = "JABWrapper", from = "src" },
+dependencies = [
+    "pywin32>=300,<=311; sys_platform == 'win32'",
 ]
 
-[tool.poetry.dependencies]
-python = "^3.9.1"
-pywin32 = { version = ">=300,<=311", platform = "win32" }
+[project.scripts]
+java_tree_reader = "JABWrapper.context_tree_reader:main"
 
-[tool.poetry.dev-dependencies]
-black = "^24.9.1"
-flake8 = "^7.3.0"
-isort = "^6.1.0"
-pytest = "^8.4.2"
+[project.urls]
+Repository = "https://github.com/robocorp/java-access-bridge-wrapper.git"
 
-[tool.poetry.scripts]
-java_tree_reader = 'JABWrapper.context_tree_reader:main'
+[dependency-groups]
+dev = [
+    "black>=24.9.1",
+    "flake8>=7.3.0",
+    "invoke>=2.2.0",
+    "isort>=6.1.0",
+    "pytest>=8.4.2",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/JABWrapper"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/JABWrapper"]
 
 [tool.black]
-line-length = 120  # subject to change after deciding upon a standard
+line-length = 120
 target-version = ["py38", "py39", "py310"]
 
 [tool.isort]
 profile = "black"
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"

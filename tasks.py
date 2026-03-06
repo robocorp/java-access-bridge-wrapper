@@ -4,15 +4,14 @@ from typing import Optional
 REPO_ROOT = Path(__file__).parent.resolve()
 CONFIG = REPO_ROOT / "config"
 FLAKE8_CONFIG = CONFIG / "flake8"
-DEVPI_URL = "https://devpi.robocorp.cloud/ci/test"
 
 
-from invoke import Context, ParseError, task
+from invoke import Context, task
 
 
-def poetry(ctx: Context, command: str, **kwargs):
-    """Executes Poetry commands on the shell."""
-    return ctx.run(f"poetry {command}", **kwargs)
+def uv(ctx: Context, command: str, **kwargs):
+    """Executes uv commands on the shell."""
+    return ctx.run(f"uv {command}", **kwargs)
 
 
 def invoke(ctx: Context, command: str, **kwargs):
@@ -22,56 +21,14 @@ def invoke(ctx: Context, command: str, **kwargs):
 
 @task(
     help={
-        "username": (
-            "Configures credentials for PyPI or a devpi repository."
-            " The username will be stored by Poetry in the system keyring."
-        ),
-        "password": (
-            "Configures credentials for PyPI or a devpi repository."
-            " The password will be stored by Poetry in the system keyring."
-        ),
-        "token": ("Can be used in place of '--username' and '--password'," " the token must be prefixed by 'pypi-'."),
-        "ci": (
-            "Configures the CI DevPI instead of the production PyPI. This is required" " when publishing with '--ci'."
-        ),
-    }
-)
-def setup(
-    ctx, username: Optional[str] = None, password: Optional[str] = None, token: Optional[str] = None, ci: bool = False
-):
-    """Setup Poetry with the right configuration for library development."""
-    config_cmd = "config --no-interaction --local"
-    poetry(ctx, f"{config_cmd} virtualenvs.in-project true")
-    poetry(ctx, f"{config_cmd} virtualenvs.create true")
-    poetry(ctx, f"{config_cmd} virtualenvs.path null")
-    poetry(ctx, f"{config_cmd} installer.parallel true")
-
-    if ci:
-        repo = "devpi"
-        poetry(ctx, f"{config_cmd} repositories.{repo} {DEVPI_URL}")
-    else:
-        repo = "pypi"
-    if username and password:
-        creds = f"http-basic.{repo} {username} {password}"
-    elif token:
-        creds = f"pypi-token.{repo} {token}"
-    else:
-        raise ParseError("You have to provide either both 'username' & 'password' or a 'token'")
-    poetry(ctx, f"{config_cmd} {creds}", echo=False)
-
-
-@task(
-    help={
         "verbose": "Display detailed information with this on.",
-        "install": "Also installs the package in development mode at the end.",
     },
 )
-def update(ctx, verbose: bool = False, install: bool = True):
-    """Update the dependency lock file based on the pinned versions."""
-    poetry_opts = "-vvv" if verbose else ""
-    poetry(ctx, f"update {poetry_opts}")
-    if install:
-        poetry(ctx, f"install {poetry_opts}")
+def update(ctx, verbose: bool = False):
+    """Update the dependency lock file and install dependencies."""
+    uv_opts = "-v" if verbose else ""
+    uv(ctx, f"lock {uv_opts}")
+    uv(ctx, f"sync --all-groups {uv_opts}")
 
 
 @task(help={"apply": "Apply linting recommendations where possible."})
@@ -80,13 +37,13 @@ def lint(ctx, apply: bool = False):
     warn = not apply
     sources = "src tests"
 
-    isort_opts = "--diff" if not apply else ""
-    poetry(ctx, f"run isort {isort_opts} {sources}", warn=warn)
+    isort_opts = "" if apply else "--check --diff"
+    uv(ctx, f"run isort {isort_opts} {sources}", warn=warn)
 
-    black_opts = "--diff --check" if not apply else ""
-    poetry(ctx, f"run black {black_opts} {sources}", warn=warn)
+    black_opts = "" if apply else "--check --diff"
+    uv(ctx, f"run black {black_opts} {sources}", warn=warn)
 
-    poetry(ctx, f"run flake8 --config {FLAKE8_CONFIG} {sources}", warn=warn)
+    uv(ctx, f"run flake8 --config {FLAKE8_CONFIG} {sources}", warn=warn)
 
 
 @task(
@@ -94,7 +51,7 @@ def lint(ctx, apply: bool = False):
         "verbose": "Display detailed information with this on.",
         "capture_output": "Display printed information in the console.",
         "test": "Run specific test. (e.g.: 'test_jab_wrapper.py::test_app_flow')",
-        "simple": "Test a single title-based scenario with disabled callbacks."
+        "simple": "Test a single title-based scenario with disabled callbacks.",
     },
 )
 def test(ctx, verbose: bool = False, capture_output: bool = False, test: Optional[str] = None, simple: bool = False):
@@ -118,27 +75,24 @@ def test(ctx, verbose: bool = False, capture_output: bool = False, test: Optiona
         if len(parts) == 2:
             target = f"{target}::{parts[1]}"
 
-    poetry(ctx, f"run pytest {pytest_opts} {target}")
+    uv(ctx, f"run pytest {pytest_opts} {target}")
 
 
 @task(
     help={
         "build_only": "Stop after building and do not publish the package.",
-        "ci": "Publish the package into our DevPI CI instead of the production PyPI.",
     }
 )
-def publish(ctx, build_only: bool = False, ci: bool = False):
-    """Build and publish the library to the configured packages index."""
-    if not (build_only or ci):
+def publish(ctx, build_only: bool = False):
+    """Build and publish the library to PyPI."""
+    if not build_only:
         invoke(ctx, "update")
         invoke(ctx, "lint")
         invoke(ctx, "test")
 
-    poetry(ctx, "build -vv -f sdist")
-    poetry(ctx, "build -vv -f wheel")
+    uv(ctx, "build")
 
     if build_only:
         return
 
-    publish_opts = "-v --no-interaction --repository devpi" if ci else ""
-    poetry(ctx, f"publish {publish_opts}")
+    uv(ctx, "publish")
