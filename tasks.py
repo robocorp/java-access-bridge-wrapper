@@ -4,6 +4,7 @@ from typing import Optional
 REPO_ROOT = Path(__file__).parent.resolve()
 CONFIG = REPO_ROOT / "config"
 FLAKE8_CONFIG = CONFIG / "flake8"
+DEVPI_URL = "https://devpi.robocorp.cloud/ci/test"
 
 
 from invoke import Context, task
@@ -81,11 +82,12 @@ def test(ctx, verbose: bool = False, capture_output: bool = False, test: Optiona
 @task(
     help={
         "build_only": "Stop after building and do not publish the package.",
+        "ci": "Publish the package into our DevPI CI instead of the production PyPI.",
     }
 )
-def publish(ctx, build_only: bool = False):
-    """Build and publish the library to PyPI."""
-    if not build_only:
+def publish(ctx, build_only: bool = False, ci: bool = False):
+    """Build and publish the library to the configured packages index."""
+    if not (build_only or ci):
         invoke(ctx, "update")
         invoke(ctx, "lint")
         invoke(ctx, "test")
@@ -95,4 +97,7 @@ def publish(ctx, build_only: bool = False):
     if build_only:
         return
 
-    uv(ctx, "publish")
+    if ci:
+        uv(ctx, f"publish --publish-url {DEVPI_URL}")
+    else:
+        uv(ctx, "publish")
