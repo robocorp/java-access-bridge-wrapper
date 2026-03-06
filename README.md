@@ -69,44 +69,48 @@ Once the JABWrapper object is initialized, attach to some frame and optionally c
 
 ## Prerequisites
 
-1. Install Invoke, Poetry and the other required dependencies in order to be able to develop and package the library:
-   `pip install -Ur requirements.txt`.
-   - If you want to isolate these from the other projects and not rely on the OS
-     Python, enable a (_pyenv_) virtual environment first by following these
-     [instructions](https://github.com/robocorp/rpaframework/blob/master/docs/source/contributing/development.md#virtual-environments).
-2. Now you're ready to set-up Poetry for the first time with `inv setup`.
-   - Check with `-h` on how to pass credentials for ensuring that both your production  PyPI and CI DevPI are
-     configured. You'll find these in our **Robocorp** > **Shared** 1Password by searching for keywords like "pypi"
-     (where we recommend a personal _token_ instead) and "devpi".
-3. Run `inv update` so the library gets ready for development.
+* [uv](https://docs.astral.sh/uv/) - Fast Python package manager
+
+## Setup
+
+Install all dependencies (including dev tools):
+
+    uv sync --all-groups
 
 ## Testing
 
 Run test script against a simple Swing application.
 
-Set environment variable
+Set environment variable:
 
     set RC_JAVA_ACCESS_BRIDGE_DLL="C:\path\to\Java\bin\WindowsAccessBridge-64.dll"
 
-Update requirements and install the library in development mode
+Run tests:
 
-    inv update
+    inv test                                    # run all tests
+    inv test -t test_jab_wrapper.py             # run tests from a file
+    inv test -t test_jab_wrapper.py::test_depth -c  # specific test with output
+    inv test -s                                 # simple mode (single scenario, no callbacks)
 
-Run tests
+## Linting
 
-    inv test  # runs all the tests in all scenarios
-    inv test -s -t test_jab_wrapper.py  # runs all the tests from a file in one simple common scenario
-    inv test -s -c -t test_jab_wrapper.py::test_depth  # as above, but specific test and captures output
+Check code style:
+
+    inv lint
+
+Apply formatting fixes:
+
+    inv lint -a
 
 ## Packaging
 
-Check linting
+Build and publish:
 
-    inv lint  # apply with '-a'
+    inv publish
 
-Building and publishing
+Build only (no publish):
 
-    inv publish  # '-c' for DevPI
+    inv publish --build-only
 
 ## TODO:
 

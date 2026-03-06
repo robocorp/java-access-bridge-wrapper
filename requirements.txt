@@ -1,3 +1,0 @@
-invoke~=2.2.0
-poetry~=1.6.1
-keyring~=24.2.0
